@@ -165,9 +165,9 @@ jobs:
             OUT_DIR="sukisu"
           fi
 
-          git clone https://github.com/ramaadni/AnyKernel3
-          cp $OUT_DIR/out/arch/arm64/boot/Image.gz AnyKernel3/
-          cd AnyKernel3
+          git clone https://github.com/TegarXLu/kernel_common_gki-5.10/tree/wkcw/AnyKernel3
+          cp $OUT_DIR/out/arch/arm64/boot/Image.gz /kernel/AnyKernel3/
+          cd kernel/AnyKernel3
           zip -r9 "../$ZIP_NAME" ./*
           echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
 
