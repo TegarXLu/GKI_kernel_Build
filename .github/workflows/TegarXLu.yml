@@ -109,7 +109,7 @@ jobs:
       - name: Download Clang
         run: |
           mkdir clang
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main.tar.gz -O clang.tar.gz
+          wget  https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android-gs-raviole-5.10-android12-qpr3/clang-r416183c.tar.gz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
 
       - name: Set CONFIG_LOCALVERSION
