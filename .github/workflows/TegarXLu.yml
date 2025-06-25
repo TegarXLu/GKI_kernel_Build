@@ -162,11 +162,11 @@ jobs:
           export LTO=full
 
           make O=out ARCH=arm64 gki_defconfig
-          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full V=1 2>&1 | tee build.log
-
+          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full V=1 2>&1
+          
       - name: Upload build log
-        uses: actions/upload-artifact@v4
-        with:
+          uses: actions/upload-artifact@v4
+          with:
           name: build-log-${{ matrix.name }}
           path: build.log
 
