@@ -144,8 +144,8 @@ jobs:
            export SUBARCH=arm64
            export CLANG_PATH=$GITHUB_WORKSPACE/clang
            export PATH=$CLANG_PATH/bin:$PATH
-           set -x  # echo every command
-           set -e  # exit immediately on error
+           set -x 
+           set -e
 
            export CC=clang
            export CXX=clang++
