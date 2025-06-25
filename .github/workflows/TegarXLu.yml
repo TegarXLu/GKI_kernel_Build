@@ -161,9 +161,9 @@ jobs:
           export LLVM_IAS=1
           export LTO=full
 
-          make O=out ARCH=arm64 gki_defconfig
-          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full V=1 2>&1
-
+          make O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 gki_defconfig
+          make -j$(nproc) O=out ARCH=arm64 CC=clang LLVM=1 LLVM_IAS=1 LTO=full
+          
       - name: Package Kernel with AnyKernel3
         id: zipkernel
         run: |
