@@ -138,33 +138,34 @@ jobs:
           git commit -m "Final clean tree before build" || true
 
       - name: Build Kernel
-        run: |
-          cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
-          export ARCH=arm64
-          export SUBARCH=arm64
-          export CLANG_PATH=$GITHUB_WORKSPACE/clang
-          export PATH=$CLANG_PATH/bin:$PATH
-          
-          export CC=clang
-          export CXX=clang++
-          export LD=ld.lld
-          export AR=llvm-ar
-          export NM=llvm-nm
-          export OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump
-          export STRIP=llvm-strip
-          export HOSTCC=clang
-          export HOSTCXX=clang++
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export LLVM=1
-          export LLVM_IAS=1
-          export LTO=full
+         run: |
+           cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
+           export ARCH=arm64
+           export SUBARCH=arm64
+           export CLANG_PATH=$GITHUB_WORKSPACE/clang
+           export PATH=$CLANG_PATH/bin:$PATH
+           set -x  # echo every command
+           set -e  # exit immediately on error
 
-          make O=out ARCH=arm64 gki_defconfig
-          make -j$(nproc) O=out ARCH=arm64
+           export CC=clang
+           export CXX=clang++
+           export LD=ld.lld
+           export AR=llvm-ar
+           export NM=llvm-nm
+           export OBJCOPY=llvm-objcopy
+           export OBJDUMP=llvm-objdump
+           export STRIP=llvm-strip
+           export HOSTCC=clang
+           export HOSTCXX=clang++
+           export CROSS_COMPILE=aarch64-linux-gnu-
+           export LLVM=1
+           export LLVM_IAS=1
+           export LTO=full
 
-      - name: Package Kernel with AnyKernel3
-        id: zipkernel
+           make O=out ARCH=arm64 gki_defconfig
+ 
+       - name: Package Kernel with AnyKernel3
+         id: zipkernel
         run: |
           DATE=$(date +%Y%m%d)
           echo "DATE=$DATE" >> $GITHUB_ENV
