@@ -109,7 +109,7 @@ jobs:
       - name: Download Clang
         run: |
           mkdir clang
-          wget  https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android12-release/clang-r383902.tar.gz -O clang.tar.gz
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android12-release/clang-r383902.tar.gz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
 
       - name: Set CONFIG_LOCALVERSION
@@ -138,34 +138,40 @@ jobs:
           git commit -m "Final clean tree before build" || true
 
       - name: Build Kernel
-         run: |
-           cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
-           export ARCH=arm64
-           export SUBARCH=arm64
-           export CLANG_PATH=$GITHUB_WORKSPACE/clang
-           export PATH=$CLANG_PATH/bin:$PATH
-           set -x 
-           set -e
+        run: |
+          cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CLANG_PATH=$GITHUB_WORKSPACE/clang
+          export PATH=$CLANG_PATH/bin:$PATH
+          set -x
+          set -e
+          export CC=clang
+          export CXX=clang++
+          export LD=ld.lld
+          export AR=llvm-ar
+          export NM=llvm-nm
+          export OBJCOPY=llvm-objcopy
+          export OBJDUMP=llvm-objdump
+          export STRIP=llvm-strip
+          export HOSTCC=clang
+          export HOSTCXX=clang++
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export LLVM=1
+          export LLVM_IAS=1
+          export LTO=full
 
-           export CC=clang
-           export CXX=clang++
-           export LD=ld.lld
-           export AR=llvm-ar
-           export NM=llvm-nm
-           export OBJCOPY=llvm-objcopy
-           export OBJDUMP=llvm-objdump
-           export STRIP=llvm-strip
-           export HOSTCC=clang
-           export HOSTCXX=clang++
-           export CROSS_COMPILE=aarch64-linux-gnu-
-           export LLVM=1
-           export LLVM_IAS=1
-           export LTO=full
+          make O=out ARCH=arm64 gki_defconfig
+          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full V=1 2>&1 | tee build.log
 
-           make O=out ARCH=arm64 gki_defconfig
- 
-       - name: Package Kernel with AnyKernel3
-         id: zipkernel
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.name }}
+          path: build.log
+
+      - name: Package Kernel with AnyKernel3
+        id: zipkernel
         run: |
           DATE=$(date +%Y%m%d)
           echo "DATE=$DATE" >> $GITHUB_ENV
