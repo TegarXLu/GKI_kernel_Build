@@ -137,7 +137,7 @@ jobs:
           git add .
           git commit -m "Final clean tree before build" || true
 
-          - name: Apply SUSFS Patches for KernelSU Variants
+       - name: Apply SUSFS Patches for KernelSU Variants
         run: |
           echo "Changing to configuration directory: $CONFIG..."
           cd "$CONFIG"
