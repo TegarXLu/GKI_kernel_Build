@@ -334,7 +334,6 @@ jobs:
             echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
           fi
           
-
       - name: Build Kernel
         run: |
           cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
