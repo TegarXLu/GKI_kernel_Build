@@ -127,7 +127,7 @@ jobs:
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
 
-       - name: Apply SUSFS Patches for KernelSU Variants
+      - name: Apply SUSFS Patches for KernelSU Variants
         run: |
           echo "Changing to configuration directory: $kernel..."
           cd "$kernel"
@@ -157,7 +157,7 @@ jobs:
               patch -p1 --forward --fuzz=3 < fix_sucompat.c.patch
               sed -i '/bool ksu_devpts_hook = false;/d' ./kernel/sucompat.c
 
-     - name: Apply Hooks Patches
+      - name: Apply Hooks Patches
         run: |
           echo "Changing to configuration directory: $kernel..."
           cd "$kernel"
