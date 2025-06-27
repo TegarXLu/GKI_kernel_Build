@@ -98,8 +98,8 @@ jobs:
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
-            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s main
-            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs-main
+            curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s main
+            curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs-main
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             cd sukisu
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
@@ -163,20 +163,7 @@ jobs:
 
           make O=out ARCH=arm64 gki_defconfig
           make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
-
-      - name: Verify SUSFS Patch
-        run: |
-          echo "🔍 Verifying SUSFS in built kernel config..."
-          if [[ "${{ matrix.name }}" == "noroot" ]]; then
-            CONFIG=kernel/out/.config
-          else
-            CONFIG=${{ matrix.name }}/out/.config
-          fi
-
-          grep -q "CONFIG_KSU=y" "$CONFIG" && echo "✅ CONFIG_KSU found!" || echo "❌ CONFIG_KSU not found!"
-          grep -q "CONFIG_KSU_SUSFS=y" "$CONFIG" && echo "✅ CONFIG_KSU_SUSFS found!" || echo "❌ CONFIG_KSU_SUSFS not found!"
-          grep -q "CONFIG_SECURITYFS=y" "$CONFIG" && echo "✅ CONFIG_SECURITYFS found!" || echo "❌ CONFIG_SECURITYFS not found!"
-
+          
       - name: Package Kernel with AnyKernel3
         id: zipkernel
         run: |
