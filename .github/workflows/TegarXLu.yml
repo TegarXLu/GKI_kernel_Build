@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y git wget curl build-essential bc bison \
-            flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip
+            flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip dwarves
 
       - name: Create Swap
         run: |
@@ -124,6 +124,13 @@ jobs:
           cd kernel
           git add .
           git commit -m "Final clean tree before build" || true
+
+      - name: Perbaiki izin eksekusi script
+        run: |
+          find kernel/scripts -type f -exec chmod +x {} +
+          if [[ "${{ matrix.name }}" != "noroot" ]]; then
+            find ${{ matrix.name }}/scripts -type f -exec chmod +x {} +
+          fi
 
       - name: Build Kernel
         run: |
