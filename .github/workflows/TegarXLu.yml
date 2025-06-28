@@ -94,7 +94,7 @@ jobs:
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
 
-- name: Inject Variant Patch (KSU/SukiSU)
+      - name: Inject Variant Patch (KSU/SukiSU)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
