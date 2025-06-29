@@ -1,4 +1,4 @@
-name: build-TegarXLu
+name: build-wkcw
 
 on:
   workflow_dispatch:
@@ -115,13 +115,13 @@ jobs:
         run: |
           if [[ "${{ matrix.name }}" == "noroot" ]]; then
             DEFCONFIG=kernel/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu"
+            VERSION="-WakacaW"
           elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
             DEFCONFIG=ksunext/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu-KSUNext"
+            VERSION="-WakacaW-KSUNext"
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu-SukiSU"
+            VERSION="-WakacaW-SukiSU"
           fi
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
@@ -161,7 +161,7 @@ jobs:
           export LTO=full
 
           make O=out ARCH=arm64 gki_defconfig
-          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full KCFLAGS=-Wno-error CFLAGS_KERNEL="-std=gnu89"
+          make -j1 V=1 KCFLAGS=-Wno-error CFLAGS_KERNEL="-std=gnu89" 2>&1 | tee full_build.log
 
       - name: Package Kernel with AnyKernel3
         id: zipkernel
@@ -186,6 +186,11 @@ jobs:
           echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
 
       - name: Upload Artifact
+      - name: Upload Build Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: full_build_log
+          path: full_build.log
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.zipkernel.outputs.zip_name }}
@@ -212,18 +217,18 @@ jobs:
 
       - name: Generate Release Notes
         run: |
-          echo "🔧 **TegarXLu GKI Release**" > release.txt
+          echo "🔧 **WakacaW GKI Release**" > release.txt
 
           if [[ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]]; then
-            echo "- 🧩 TegarXLu-GKI: Without root" >> release.txt
+            echo "- 🧩 WakacaW-GKI: Without root" >> release.txt
           fi
 
           if [[ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]]; then
-            echo "- 🛡️ TegarXLu-GKI-KSUNext: With root KernelSU Next" >> release.txt
+            echo "- 🛡️ WakacaW-GKI-KSUNext: With root KernelSU Next" >> release.txt
           fi
 
           if [[ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]]; then
-            echo "- 🦊 TegarXLu-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
+            echo "- 🦊 WakacaW-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
           fi
 
           echo "" >> release.txt
