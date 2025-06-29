@@ -126,6 +126,16 @@ jobs:
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
 
+     - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
+        run: |
+          echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
+
+      - name: Final Clean Tree Commit (before build)
+        run: |
+          cd kernel
+          git add .
+          git commit -m "Final clean tree before build" || true
+
       - name: Build Kernel
         run: |
           cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
