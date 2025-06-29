@@ -82,6 +82,7 @@ jobs:
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
+      
       - name: Setup Worktree (for ksunext/sukisu)
         if: matrix.name != 'noroot'
         run: |
@@ -90,6 +91,7 @@ jobs:
           git config user.email "dimasnasution776@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
+     
       - name: Inject Variant Patch (KSU/SukiSU)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
@@ -138,7 +140,7 @@ jobs:
           git add .
           git commit -m "Final clean tree before build" || true
 
-       - name: Fix kernel script permissions
+      - name: Fix kernel script permissions
         run: |
           cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
           chmod -R +x scripts
