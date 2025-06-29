@@ -1,4 +1,4 @@
-name: build-TegarXLu_Kernel
+name: build-wkcw
 
 on:
   workflow_dispatch:
@@ -6,11 +6,11 @@ on:
       KERNEL_REPO:
         description: 'Link repo kernel'
         required: true
-        default: 'https://github.com/TegarXLu/GKI_kernel_5.10'
+        default: 'https://github.com/ramaadni/kernel_common_gki-5.10'
       KERNEL_BRANCH:
         description: 'Branch kernel'
         required: true
-        default: 'main'
+        default: 'wkcw'
       BUILD_NOROOT:
         description: 'Build Noroot variant'
         type: boolean
@@ -72,7 +72,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y git wget curl build-essential bc bison \
-            flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip dwarves
+            flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip
 
       - name: Create Swap
         run: |
@@ -80,7 +80,7 @@ jobs:
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
-          
+
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
@@ -89,8 +89,8 @@ jobs:
         if: matrix.name != 'noroot'
         run: |
           cd kernel
-          git config user.name "TegarXLu"
-          git config user.email "dimasnasution776@gmail.com"
+          git config user.name "Ramadhani"
+          git config user.email "ramadhanifals@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
 
@@ -104,44 +104,27 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           fi
-          
+
       - name: Download Clang
         run: |
           mkdir clang
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -O clang.tar.gz
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
 
       - name: Set CONFIG_LOCALVERSION
         run: |
           if [[ "${{ matrix.name }}" == "noroot" ]]; then
             DEFCONFIG=kernel/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu"
+            VERSION="-WakacaW"
           elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
             DEFCONFIG=ksunext/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu-KSUNext"
+            VERSION="-WakacaW-KSUNext"
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu-SukiSU"
+            VERSION="-WakacaW-SukiSU"
           fi
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
-
-      - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
-        run: |
-          echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
-
-      - name: Final Clean Tree Commit (before build)
-        run: |
-          cd kernel
-          git add .
-          git commit -m "Final clean tree before build" || true
-
-      - name: Perbaiki izin eksekusi script
-        run: |
-          find kernel/scripts -type f -exec chmod +x {} +
-          if [[ "${{ matrix.name }}" != "noroot" ]]; then
-            find ${{ matrix.name }}/scripts -type f -exec chmod +x {} +
-          fi
 
       - name: Build Kernel
         run: |
@@ -169,7 +152,7 @@ jobs:
 
           make O=out ARCH=arm64 gki_defconfig
           make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
-          
+
       - name: Package Kernel with AnyKernel3
         id: zipkernel
         run: |
@@ -219,24 +202,24 @@ jobs:
 
       - name: Generate Release Notes
         run: |
-          echo "🔧 **TegarXLu GKI Release**" > release.txt
+          echo "🔧 **WakacaW GKI Release**" > release.txt
 
           if [[ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]]; then
-            echo "- 🧩 TegarXLu-GKI: Without root" >> release.txt
+            echo "- 🧩 WakacaW-GKI: Without root" >> release.txt
           fi
 
           if [[ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]]; then
-            echo "- 🛡️ TegarXLu-GKI-KSUNext+SUSFS: With root KernelSU Next + SUSFS" >> release.txt
+            echo "- 🛡️ WakacaW-GKI-KSUNext: With root KernelSU Next" >> release.txt
           fi
 
           if [[ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]]; then
-            echo "- 🦊 TegarXLu-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
+            echo "- 🦊 WakacaW-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
           fi
 
           echo "" >> release.txt
           echo "📝 **Notes:**" >> release.txt
           echo "- Based on AOSP GKI 5.10" >> release.txt
-          echo "- SUSFS patch applied on SukiSU and KSUNext" >> release.txt
+          echo "- SUSFS patch applied only on SukiSU" >> release.txt
           echo "- Can be used on GKI-based devices (Android 12-5.10)" >> release.txt
           echo "" >> release.txt
           echo "📄 <b>Full changelog</b>: [Here](${{ github.event.inputs.KERNEL_REPO }}/commits/${{ github.event.inputs.KERNEL_BRANCH }})" >> release.txt
@@ -245,8 +228,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: TegarXLu-GKI-${{ needs.finalize.outputs.date }}
-          name: TegarXLu GKI - ${{ needs.finalize.outputs.date }}
+          tag_name: WakacaW-GKI-${{ needs.finalize.outputs.date }}
+          name: WakacaW GKI - ${{ needs.finalize.outputs.date }}
           body_path: release.txt
           files: "**/*.zip"
         env:
