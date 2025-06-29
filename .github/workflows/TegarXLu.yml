@@ -89,8 +89,8 @@ jobs:
         if: matrix.name != 'noroot'
         run: |
           cd kernel
-          git config user.name "Ramadhani"
-          git config user.email "ramadhanifals@gmail.com"
+          git config user.name "TeagarXLu"
+          git config user.email "botdimas889@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
 
@@ -238,8 +238,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: WakacaW-GKI-${{ needs.finalize.outputs.date }}
-          name: WakacaW GKI - ${{ needs.finalize.outputs.date }}
+          tag_name: TegarXLu-GKI-${{ needs.finalize.outputs.date }}
+          name: TegarXLu GKI - ${{ needs.finalize.outputs.date }}
           body_path: release.txt
           files: "**/*.zip"
         env:
