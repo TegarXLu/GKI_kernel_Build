@@ -1,4 +1,4 @@
-name: build-wkcw
+name: build-TegarXLu
 
 on:
   workflow_dispatch:
@@ -115,13 +115,13 @@ jobs:
         run: |
           if [[ "${{ matrix.name }}" == "noroot" ]]; then
             DEFCONFIG=kernel/arch/arm64/configs/gki_defconfig
-            VERSION="-WakacaW"
+            VERSION="-TegarXLu"
           elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
             DEFCONFIG=ksunext/arch/arm64/configs/gki_defconfig
-            VERSION="-WakacaW-KSUNext"
+            VERSION="-TegarXLu-KSUNext"
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
-            VERSION="-WakacaW-SukiSU"
+            VERSION="-TegarXLu-SukiSU"
           fi
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
@@ -161,7 +161,7 @@ jobs:
           export LTO=full
 
           make O=out ARCH=arm64 gki_defconfig
-          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
+          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full KCFLAGS=-Wno-error CFLAGS_KERNEL="-std=gnu89"
 
       - name: Package Kernel with AnyKernel3
         id: zipkernel
@@ -212,18 +212,18 @@ jobs:
 
       - name: Generate Release Notes
         run: |
-          echo "🔧 **WakacaW GKI Release**" > release.txt
+          echo "🔧 **TegarXLu GKI Release**" > release.txt
 
           if [[ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]]; then
-            echo "- 🧩 WakacaW-GKI: Without root" >> release.txt
+            echo "- 🧩 TegarXLu-GKI: Without root" >> release.txt
           fi
 
           if [[ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]]; then
-            echo "- 🛡️ WakacaW-GKI-KSUNext: With root KernelSU Next" >> release.txt
+            echo "- 🛡️ TegarXLu-GKI-KSUNext: With root KernelSU Next" >> release.txt
           fi
 
           if [[ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]]; then
-            echo "- 🦊 WakacaW-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
+            echo "- 🦊 TegarXLu-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
           fi
 
           echo "" >> release.txt
