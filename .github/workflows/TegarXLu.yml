@@ -112,7 +112,7 @@ jobs:
 
       - name: Verify Clang availability
         run: |
-          bexport PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+          export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
           clang --version || exit 1
       
       - name: Set CONFIG_LOCALVERSION
