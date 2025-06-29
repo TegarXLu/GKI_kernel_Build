@@ -101,11 +101,18 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           fi
+      
       - name: Download Clang
         run: |
           mkdir clang
           wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
+
+      - name: Verify Clang availability
+        run: |
+          bexport PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+          clang --version || exit 1
+      
       - name: Set CONFIG_LOCALVERSION
         run: |
           if [[ "${{ matrix.name }}" == "noroot" ]]; then
@@ -120,40 +127,22 @@ jobs:
           fi
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
-      - name: Add SUSFS Configuration Settings
-        run: |
-          echo "Changing to configuration directory: $kernel..."
-          cd "$kernel"
-          # Add SUSFS configuration settings
-          echo "CONFIG_KSU_SUSFS=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-
-          if [ "${{ inputs.kernelsu_variant }}" == "NEXT" ] || [ "${{ inputs.kernelsu_variant }}" == "WILD" ]; then
-            echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./kernel/arch/arm64/configs/gki_defconfig
-          else
-            echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./kernel/arch/arm64/configs/gki_defconfig
-          fi
+      
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
           echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
+      
       - name: Final Clean Tree Commit (before build)
         run: |
           cd kernel
           git add .
           git commit -m "Final clean tree before build" || true
+
+       - name: Fix kernel script permissions
+        run: |
+          cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
+          chmod -R +x scripts
+      
       - name: Build Kernel
         run: |
           cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
@@ -179,6 +168,7 @@ jobs:
           export LTO=full
           make O=out ARCH=arm64 gki_defconfig
           make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
+      
       - name: Verify SUSFS Patch
         run: |
           echo "🔍 Verifying SUSFS in built kernel config..."
@@ -190,6 +180,7 @@ jobs:
           grep -q "CONFIG_KSU=y" "$CONFIG" && echo "✅ CONFIG_KSU found!" || echo "❌ CONFIG_KSU not found!"
           grep -q "CONFIG_KSU_SUSFS=y" "$CONFIG" && echo "✅ CONFIG_KSU_SUSFS found!" || echo "❌ CONFIG_KSU_SUSFS not found!"
           grep -q "CONFIG_SECURITYFS=y" "$CONFIG" && echo "✅ CONFIG_SECURITYFS found!" || echo "❌ CONFIG_SECURITYFS not found!"
+      
       - name: Package Kernel with AnyKernel3
         id: zipkernel
         run: |
@@ -210,6 +201,7 @@ jobs:
           cd AnyKernel3
           zip -r9 "../$ZIP_NAME" ./*
           echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+      
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -255,6 +247,7 @@ jobs:
           echo "" >> release.txt
           echo "📄 <b>Full changelog</b>: [Here](${{ github.event.inputs.KERNEL_REPO }}/commits/${{ github.event.inputs.KERNEL_BRANCH }})" >> release.txt
           echo "💬 Bug reports: [Support Group](https://t.me/rmdnsupport)" >> release.txt
+      
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
