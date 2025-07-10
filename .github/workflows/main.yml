@@ -89,7 +89,7 @@ jobs:
         run: |
           cd kernel
           if [ "${{ matrix.name }}" == "ksunext" ]; then
-            git clone https://github.com/tiann/KernelSU -b next drivers/kernelsu
+            git clone https://github.com/tiann/KernelSU -b main kernel
           elif [ "${{ matrix.name }}" == "sukisu" ]; then
             git clone https://github.com/ya0211/sUSFS -b main drivers/susfs
           fi
