@@ -5,21 +5,22 @@ on:
   push:
     branches: [ main ]
 
-jobs:
-  set-date:
-    runs-on: ubuntu-latest
-    outputs:
-      date: ${{ steps.getdate.outputs.date }}
-    steps:
-      - name: Get Current Date
-        id: getdate
-        run: echo "date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+  jobs:
+    set-date:
+   v  runs-on: ubuntu-latest
+      outputs:
+     v  date: ${{ steps.getdate.outputs.date }}
+     
+      steps:
+   - name: Get Current Date
+          id: getdate
+          run: echo "date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
-  setup-matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
+    setup-matrix:
+      runs-on: ubuntu-latest
+      outputs:
+        matrix: ${{ steps.set-matrix.outputs.matrix }}
+      steps:
    - name: Set build matrix
         id: set-matrix
         run: |
@@ -35,13 +36,13 @@ jobs:
           fi
           MATRIX="${MATRIX%,}]"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-  build:
-    needs: [setup-matrix]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
-    name: Build ${{ matrix.name }}
+    build:
+      needs: [setup-matrix]
+      runs-on: ubuntu-latest
+      strategy:
+        matrix:
+          include: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+      name: Build ${{ matrix.name }}
 
     steps:
     - name: Set up dependencies
