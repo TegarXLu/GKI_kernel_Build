@@ -163,7 +163,7 @@ jobs:
                 echo "Created fs/ksu_shim.c"
               else
                 echo "fs/ksu_shim.c already exists, not overwriting"
-         fi
+          fi
 
          # append object to fs/Makefile if not already present
          if [ -f fs/Makefile ]; then
@@ -175,9 +175,9 @@ jobs:
            else
              echo "fs/Makefile already references ksu_shim.o"
           fi
-         else
-           echo "Warning: fs/Makefile not found; ensure correct path. Skipping Makefile modification."
-         fi
+           else
+              echo "Warning: fs/Makefile not found; ensure correct path. Skipping Makefile modification."
+          fi
       
       - name: Final Clean Tree Commit (before build)
         run: |
