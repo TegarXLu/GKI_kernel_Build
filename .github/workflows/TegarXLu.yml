@@ -1,25 +1,97 @@
-name: Kernel Builder
+name: build-TegarXLu_Kernel
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      KERNEL_REPO:
+        description: 'Link repo kernel'
+        required: true
+        default: 'https://github.com/TegarXLu/GKI_kernel_5.10'
+      KERNEL_BRANCH:
+        description: 'Branch kernel'
+        required: true
+        default: 'main'
+      BUILD_KSUNEXT:
+        description: 'Build KSUNext variant'
+        type: boolean
+        default: false
+      BUILD_SUKISU:
+        description: 'Build SukiSU variant'
+        type: boolean
+        default: false
+      RELEASE:
+        description: 'Release kernel?'
+        type: boolean
+        default: false
+
+Workflow file for this run
+.github/workflows/TegarXLu.yml at 26a0483
+name: build-TegarXLu_Kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      KERNEL_REPO:
+        description: 'Link repo kernel'
+        required: true
+        default: 'https://github.com/TegarXLu/GKI_kernel_5.10'
+      KERNEL_BRANCH:
+        description: 'Branch kernel'
+        required: true
+        default: 'main'
+      BUILD_NOROOT:
+        description: 'Build Noroot variant'
+        type: boolean
+        default: true
+      BUILD_KSUNEXT:
+        description: 'Build KSUNext variant'
+        type: boolean
+        default: false
+      BUILD_SUKISU:
+        description: 'Build SukiSU variant'
+        type: boolean
+        default: false
+      RELEASE:
+        description: 'Release kernel?'
+        type: boolean
+        default: false
 
 jobs:
+  set-date:
+    runs-on: ubuntu-latest
+    outputs:
+      date: ${{ steps.getdate.outputs.date }}
+    steps:
+      - name: Get Current Date
+        id: getdate
+        run: echo "date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+
+  setup-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set build matrix
+        id: set-matrix
+        run: |
+          MATRIX='['
+          if [ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]; then
+            MATRIX+='{"name":"ksunext"},'
+          fi
+          if [ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]; then
+            MATRIX+='{"name":"sukisu"},'
+          fi
+          MATRIX="${MATRIX%,}]"
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
   build:
+    needs: [setup-matrix]
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        variant: [sukisu, ksuns]
+        include: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
+    name: Build ${{ matrix.name }}
 
-    steps:
-    - name: Checkout kernel source
-      uses: actions/checkout@v3
-      with:
-        repository: TegarXLu/GKI_kernel_5.10
-        ref: main
-
+        steps:
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -27,6 +99,17 @@ jobs:
           bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
           git gnupg gperf libncurses5-dev libssl-dev libxml2-utils \
           make python3 rsync unzip xz-utils zip zlib1g-dev
+          
+      - name: Create Swap
+        run: |
+          sudo fallocate -l 10G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          
+      - name: Clone Kernel Source
+        run: |
+          git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
 
     - name: Upstream kernel to 5.10.241
       run: |
@@ -141,6 +224,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: GKI-${{ env.DATE }}
+          name: TegarXLu GKI - ${{ env.DATE }}
+          body_path: release.txt
+          files: artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}        with:
           tag_name: GKI-${{ env.DATE }}
           name: TegarXLu GKI - ${{ env.DATE }}
           body_path: release.txt
