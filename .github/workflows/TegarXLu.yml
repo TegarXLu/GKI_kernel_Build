@@ -24,34 +24,6 @@ on:
         type: boolean
         default: false
 
-on:
-  workflow_dispatch:
-    inputs:
-      KERNEL_REPO:
-        description: 'Link repo kernel'
-        required: true
-        default: 'https://github.com/TegarXLu/GKI_kernel_5.10'
-      KERNEL_BRANCH:
-        description: 'Branch kernel'
-        required: true
-        default: 'main'
-      BUILD_NOROOT:
-        description: 'Build Noroot variant'
-        type: boolean
-        default: true
-      BUILD_KSUNEXT:
-        description: 'Build KSUNext variant'
-        type: boolean
-        default: false
-      BUILD_SUKISU:
-        description: 'Build SukiSU variant'
-        type: boolean
-        default: false
-      RELEASE:
-        description: 'Release kernel?'
-        type: boolean
-        default: false
-
 jobs:
   set-date:
     runs-on: ubuntu-latest
