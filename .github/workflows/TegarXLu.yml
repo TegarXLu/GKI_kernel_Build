@@ -98,8 +98,6 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s main
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs-main
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            cd common
-            git clone https://github.com/ShirkNeko/SukiSU_patch.git
             cd sukisu
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
             git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 ../sus
