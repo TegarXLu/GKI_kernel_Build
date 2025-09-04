@@ -1,145 +1,144 @@
 name: build-TegarXLu_Kernel
 
-on:
-  workflow_dispatch:
-    inputs:
-      KERNEL_REPO:
-        description: 'Link repo kernel'
-        required: true
-        default: 'https://github.com/TegarXLu/GKI_kernel_5.10'
-      KERNEL_BRANCH:
-        description: 'Branch kernel'
-        required: true
-        default: 'main'
-      BUILD_KSUNEXT:
-        description: 'Build KSUNext variant'
-        type: boolean
-        default: false
-      BUILD_SUKISU:
-        description: 'Build SukiSU variant'
-        type: boolean
-        default: false
-      RELEASE:
-        description: 'Release kernel?'
-        type: boolean
-        default: false
+on: workflow_dispatch: inputs: KERNEL_REPO: description: 'Link repo kernel' required: true default: 'https://github.com/TegarXLu/GKI_kernel_5.10' KERNEL_BRANCH: description: 'Branch kernel' required: true default: 'main' BUILD_NOROOT: description: 'Build Noroot variant' type: boolean default: true BUILD_KSUNEXT: description: 'Build KSUNext variant' type: boolean default: false BUILD_SUKISU: description: 'Build SukiSU variant' type: boolean default: false RELEASE: description: 'Release kernel?' type: boolean default: false
 
-jobs:
-  set-date:
-    runs-on: ubuntu-latest
-    outputs:
-      date: ${{ steps.getdate.outputs.date }}
-    steps:
-      - name: Get Current Date
-        id: getdate
-        run: echo "date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+jobs: set-date: runs-on: ubuntu-latest outputs: date: ${{ steps.getdate.outputs.date }} steps: - name: Get Current Date id: getdate run: echo "date=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
-  setup-matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
-    steps:
-      - name: Set build matrix
-        id: set-matrix
-        run: |
-          MATRIX='['
-          if [ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]; then
-            MATRIX+='{"name":"ksunext"},'
-          fi
-          if [ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]; then
-            MATRIX+='{"name":"sukisu"},'
-          fi
-          MATRIX="${MATRIX%,}]"
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-  build:
-    needs: [setup-matrix]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include: ${{ fromJson(needs.setup-matrix.outputs.matrix) }}
-    name: Build ${{ matrix.name }}
+setup-matrix: runs-on: ubuntu-latest outputs: matrix: ${{ steps.set-matrix.outputs.matrix }} steps: - name: Set build matrix id: set-matrix run: | MATRIX='[' if [ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]; then MATRIX+='{"name":"ksunext"},' fi if [ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]; then MATRIX+='{"name":"sukisu"},' fi MATRIX="${MATRIX%,}]" echo "matrix=$MATRIX" >> $GITHUB_OUTPUT build: needs: [setup-matrix] runs-on: ubuntu-latest strategy: matrix: include: ${{ fromJson(needs.setup-matrix.outputs.matrix) }} name: Build ${{ matrix.name }}
 
-        steps:
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
-          git gnupg gperf libncurses5-dev libssl-dev libxml2-utils \
-          make python3 rsync unzip xz-utils zip zlib1g-dev
-          
-      - name: Create Swap
-        run: |
-          sudo fallocate -l 10G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          
-      - name: Clone Kernel Source
-        run: |
-          git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
+steps:
+- name: Install dependencies
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y \
+      bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
+      git gnupg gperf libncurses5-dev libssl-dev libxml2-utils \
+      make python3 rsync unzip xz-utils zip zlib1g-dev
+      
+  - name: Create Swap
+    run: |
+      sudo fallocate -l 10G /swapfile
+      sudo chmod 600 /swapfile
+      sudo mkswap /swapfile
+      sudo swapon /swapfile
+      
+  - name: Clone Kernel Source
+    run: |
+      git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
 
-    - name: Upstream kernel to 5.10.241
-      run: |
-        wget https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-5.10.239.xz
-        wget https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-5.10.240.xz
-        wget https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-5.10.241.xz
-        xz -d patch-5.10.239.xz
-        xz -d patch-5.10.240.xz
-        xz -d patch-5.10.241.xz
-        patch -p1 < patch-5.10.239
-        patch -p1 < patch-5.10.240
-        patch -p1 < patch-5.10.241
-        make kernelversion
+- name: Upstream kernel to 5.10.241
+  run: |
+    wget https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-5.10.239.xz
+    wget https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-5.10.240.xz
+    wget https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-5.10.241.xz
+    xz -d patch-5.10.239.xz
+    xz -d patch-5.10.240.xz
+    xz -d patch-5.10.241.xz
+    patch -p1 < patch-5.10.239
+    patch -p1 < patch-5.10.240
+    patch -p1 < patch-5.10.241
+    make kernelversion
 
-    - name: Apply patches
-      run: |
-        if [ "${{ matrix.variant }}" == "sukisu" ]; then
-          echo "=== Applying SukiSU (KPM) + SUSFS patches ==="
-          git clone --depth=1 https://github.com/SukiSU/SukiSU.git
-          git clone --depth=1 https://github.com/adi8900/susfs.git
-          cd SukiSU && ./patch_kpm.sh ../ && cd ..
-          cd susfs && ./apply.sh ../ && cd ..
-        fi
+- name: Apply patches
+  run: |
+    if [ "${{ matrix.variant }}" == "sukisu" ]; then
+      echo "=== Applying SukiSU (KPM) + SUSFS patches ==="
+      git clone --depth=1 https://github.com/SukiSU/SukiSU.git
+      git clone --depth=1 https://github.com/adi8900/susfs.git
+      cd SukiSU && ./patch_kpm.sh ../ && cd ..
+      cd susfs && ./apply.sh ../ && cd ..
+    fi
 
-        if [ "${{ matrix.variant }}" == "ksuns" ]; then
-          echo "=== Applying KernelSU Next + SUSFS patches ==="
-          git clone --depth=1 https://github.com/tiann/KernelSU.git -b next
-          git clone --depth=1 https://github.com/adi8900/susfs.git
-          cd KernelSU && ./scripts/patch.sh ../ && cd ..
-          cd susfs && ./apply.sh ../ && cd ..
-        fi
+    if [ "${{ matrix.variant }}" == "ksuns" ]; then
+      echo "=== Applying KernelSU Next + SUSFS patches ==="
+      git clone --depth=1 https://github.com/tiann/KernelSU.git -b next
+      git clone --depth=1 https://github.com/adi8900/susfs.git
+      cd KernelSU && ./scripts/patch.sh ../ && cd ..
+      cd susfs && ./apply.sh ../ && cd ..
+    fi
 
-    - name: Download Clang
-      run: |
-        mkdir clang
-        wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -O clang.tar.gz
-        tar -xf clang.tar.gz -C clang
+- name: Download Clang
+  run: |
+    mkdir clang
+    wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -O clang.tar.gz
+    tar -xf clang.tar.gz -C clang
 
-    - name: Verify Clang availability
-      run: |
-        export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
-        clang --version || exit 1
+- name: Verify Clang availability
+  run: |
+    export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
+    clang --version || exit 1
 
-    - name: Build Kernel
-      run: |
-        export ARCH=arm64
-        export SUBARCH=arm64
-        export CLANG_PATH=$GITHUB_WORKSPACE/clang
-        export PATH=$CLANG_PATH/bin:$PATH
-        export CC=clang
-        export CXX=clang++
-        export LD=ld.lld
-        export AR=llvm-ar
-        export NM=llvm-nm
-        export OBJCOPY=llvm-objcopy
-        export OBJDUMP=llvm-objdump
-        export STRIP=llvm-strip
-        export HOSTCC=clang
-        export HOSTCXX=clang++
-        export CROSS_COMPILE=aarch64-linux-gnu-
-        export LLVM=1
-        export LLVM_IAS=1
+- name: Build Kernel
+  run: |
+    export ARCH=arm64
+    export SUBARCH=arm64
+    export CLANG_PATH=$GITHUB_WORKSPACE/clang
+    export PATH=$CLANG_PATH/bin:$PATH
+    export CC=clang
+    export CXX=clang++
+    export LD=ld.lld
+    export AR=llvm-ar
+    export NM=llvm-nm
+    export OBJCOPY=llvm-objcopy
+    export OBJDUMP=llvm-objdump
+    export STRIP=llvm-strip
+    export HOSTCC=clang
+    export HOSTCXX=clang++
+    export CROSS_COMPILE=aarch64-linux-gnu-
+    export LLVM=1
+    export LLVM_IAS=1
+    export LTO=full
+    make O=out ARCH=arm64 gki_defconfig
+    make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
+
+- name: Package Kernel with AnyKernel3
+  id: zipkernel
+  run: |
+    DATE=$(date +%Y%m%d)
+    if [[ "${{ matrix.variant }}" == "sukisu" ]]; then
+      ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
+    elif [[ "${{ matrix.variant }}" == "ksuns" ]]; then
+      ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
+    fi
+    git clone https://github.com/TegarXLu/AnyKernel3
+    cp out/arch/arm64/boot/Image.gz AnyKernel3/
+    cd AnyKernel3
+    zip -r9 "../$ZIP_NAME" ./*
+    echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+
+- name: Upload Artifact
+  uses: actions/upload-artifact@v4
+  with:
+    name: ${{ steps.zipkernel.outputs.zip_name }}
+    path: ${{ steps.zipkernel.outputs.zip_name }}
+
+release: needs: [build] runs-on: ubuntu-latest steps: - name: Download all artifacts uses: actions/download-artifact@v4 with: path: ./artifacts
+
+- name: Generate Release Notes
+    run: |
+      DATE=$(date +%Y%m%d)
+      echo "🔧 **TegarXLu GKI Release**" > release.txt
+      echo "- 🦊 SukiSU + SUSFS build" >> release.txt
+      echo "- 🛡️ KernelSU Next + SUSFS build" >> release.txt
+      echo "" >> release.txt
+      echo "📝 **Notes:**" >> release.txt
+      echo "- Based on Linux 5.10.241 upstream" >> release.txt
+      echo "- Full LTO with Clang r536225" >> release.txt
+      echo "- SUSFS patches applied" >> release.txt
+      echo "" >> release.txt
+      echo "💬 Bug reports: [Support Group](https://t.me/rmdnsupport)" >> release.txt
+      echo "DATE=$DATE" >> $GITHUB_ENV
+
+  - name: Create GitHub Release
+    uses: softprops/action-gh-release@v2
+    with:
+      tag_name: GKI-${{ env.DATE }}
+      name: TegarXLu GKI - ${{ env.DATE }}
+      body_path: release.txt
+      files: artifacts/**/*.zip
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
         export LTO=full
         make O=out ARCH=arm64 gki_defconfig
         make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
