@@ -104,8 +104,6 @@ jobs:
             git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 ../sus
             cp -r ../sus/kernel_patches/fs . && cp -r ../sus/kernel_patches/include . && cp ../sus/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch .
             patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
-            cp ../SukiSU_patch/hooks/syscall_hooks.patch ./ && patch -p1 -F 3 < syscall_hooks.patch
-            cp ../SukiSU_patch/69_hide_stuff.patch ./ && patch -p1 -F 3 < 69_hide_stuff.patch
           fi
           
       - name: Download Clang
