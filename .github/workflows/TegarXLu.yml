@@ -24,10 +24,6 @@ on:
         type: boolean
         default: false
 
-Workflow file for this run
-.github/workflows/TegarXLu.yml at 26a0483
-name: build-TegarXLu_Kernel
-
 on:
   workflow_dispatch:
     inputs:
