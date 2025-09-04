@@ -90,6 +90,7 @@ jobs:
           git config user.email "dimasnasution776@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git
      
       - name: Inject Variant Patch (KSU/SukiSU)
         run: |
