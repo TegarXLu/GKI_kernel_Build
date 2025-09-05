@@ -100,7 +100,7 @@ jobs:
       
       - name: Set CONFIG_LOCALVERSION
         run: |
-          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
+          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
             DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
             VERSION="-TegarXLu-SukiSU"
           fi
