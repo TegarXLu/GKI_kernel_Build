@@ -165,7 +165,8 @@ jobs:
                 echo "fs/ksu_shim.c already exists, not overwriting"
           fi
 
-         # append object to fs/Makefile if not already present
+       # append object to fs/Makefile if not already present
+         
          if [ -f fs/Makefile ]; then
            if ! grep -q "ksu_shim.o" fs/Makefile; then
              echo "" >> fs/Makefile
