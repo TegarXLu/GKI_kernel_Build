@@ -1,4 +1,4 @@
-name: build-TegarXLu_Kernel
+name: SukiSU-TegarXLu_Kernel
 
 on:
   workflow_dispatch:
