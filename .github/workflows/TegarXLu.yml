@@ -271,8 +271,8 @@ EOF
             ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
             OUT_DIR="sukisu"
           else
-            echo "Unknown matrix.name: ${ { matrix.name } }"
-            exit 1
+           echo "Unknown matrix.name: ${{ matrix.name }}"
+          exit 1
           fi
 
           # possible build output directories
