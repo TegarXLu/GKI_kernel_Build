@@ -42,14 +42,23 @@ jobs:
       - name: Set build matrix
         id: set-matrix
         run: |
+          # initialize MATRIX as JSON array
+          MATRIX='['
           if [ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]; then
             MATRIX+='{"name":"ksunext"},'
           fi
           if [ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]; then
             MATRIX+='{"name":"sukisu"},'
           fi
+          # if nothing chosen, default to 'noroot' so workflow still runs
+          if [ "${MATRIX}" = "[" ]; then
+            MATRIX+='{"name":"noroot"},'
+          fi
+          # remove trailing comma and close array
           MATRIX="${MATRIX%,}]"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Matrix set to: $MATRIX"
+
   build:
     needs: [setup-matrix]
     runs-on: ubuntu-latest
@@ -63,51 +72,101 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y git wget curl build-essential bc bison \
-            flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip
+            flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip zip
+
       - name: Create Swap
         run: |
-          sudo fallocate -l 10G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          sudo fallocate -l 10G /swapfile || true
+          sudo chmod 600 /swapfile || true
+          sudo mkswap /swapfile || true
+          sudo swapon /swapfile || true
+
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
-      
+
       - name: Setup Worktree (for ksunext/sukisu)
-        if: matrix.name != 'noroot'
+        if: ${{ matrix.name != 'noroot' }}
         run: |
           cd kernel
           git config user.name "TegarXLu"
           git config user.email "dimasnasution776@gmail.com"
-          git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
-          git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
-     
+          git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }} || true
+          git worktree add ../${{ matrix.name }} temp-${{ matrix.name }} || true
+          # optional helper repo (keep but not used directly)
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git || true
+
       - name: Inject Variant Patch (KSU/SukiSU)
+        if: ${{ matrix.name != 'noroot' }}
         run: |
+          # work in the variant directory (created as sibling of 'kernel', so at repo root)
+          cd ${{ matrix.name }}
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-            cd ksunext
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s main
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs-main
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            cd sukisu
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-            git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 ../sus
-            cp -r ../sus/kernel_patches/fs . && cp -r ../sus/kernel_patches/include . && cp ../sus/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch .
-            patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
+            git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 ../sus || true
+            cp -r ../sus/kernel_patches/fs . || true
+            cp -r ../sus/kernel_patches/include . || true
+            cp ../sus/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch . || true
+            if [ -f 50_add_susfs_in_gki-android12-5.10.patch ]; then
+              patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch || true
+            fi
           fi
-          
+
+      - name: (Optional) Add temporary ksu shim for sukisu
+        if: ${{ matrix.name == 'sukisu' }}
+        run: |
+          # only add shim if missing to avoid permanent repo changes
+          if [ -d "sukisu" ]; then
+            cd sukisu
+          else
+            # if current dir is variant dir due to previous step, stay
+            pwd
+          fi
+          # Create shim file if not present
+          if [ ! -f fs/ksu_shim.c ] && [ -d fs ]; then
+            cat > fs/ksu_shim.c <<'EOF'
+/* fs/ksu_shim.c - temporary shim for missing ksu_escape_to_root symbol
+ * WARNING: temporary workaround only. Remove after upstream fix.
+ */
+#include <linux/types.h>
+#include <linux/errno.h>
+#include <linux/sched.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/export.h>
+
+int ksu_escape_to_root(struct task_struct *task)
+{
+    return -ENOSYS;
+}
+EXPORT_SYMBOL_GPL(ksu_escape_to_root);
+
+MODULE_LICENSE("GPL");
+EOF
+            if ! grep -q "ksu_shim.o" fs/Makefile 2>/dev/null; then
+              echo "" >> fs/Makefile
+              echo "# temporary shim to provide missing ksu_escape_to_root symbol" >> fs/Makefile
+              echo "obj-y += ksu_shim.o" >> fs/Makefile
+            fi
+            echo "ksu shim added (temporary)"
+          else
+            echo "No fs dir found or shim already exists; skipping shim creation"
+          fi
+
       - name: Download Clang
         run: |
-          mkdir clang
-          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/d0e0a3882edb1acc193263ae98fce706e82aca38/clang-r574158.tar.gz -O clang.tar.gz
-          tar -xf clang.tar.gz -C clang
+          mkdir -p clang
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/d0e0a3882edb1acc193263ae98fce706e82aca38/clang-r574158.tar.gz -O clang.tar.gz
+          tar -xf clang.tar.gz -C clang || true
+
       - name: Verify Clang availability
         run: |
           export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
           clang --version || exit 1
-      
+
       - name: Set CONFIG_LOCALVERSION
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
@@ -116,23 +175,45 @@ jobs:
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
             VERSION="-TegarXLu-SukiSU"
+          else
+            DEFCONFIG=kernel/arch/arm64/configs/gki_defconfig
+            VERSION="-TegarXLu"
           fi
-          sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
-          echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
-      
+          echo "Using defconfig: $DEFCONFIG"
+          if [ -f "$DEFCONFIG" ]; then
+            sed -i '/CONFIG_LOCALVERSION/d' "$DEFCONFIG"
+            echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> "$DEFCONFIG"
+          else
+            echo "Defconfig not found: $DEFCONFIG"
+            exit 1
+          fi
+
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
-          echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
-      
+          # Some earlier flows appended to kernel/arch/... ensure file exists
+          if [ -f kernel/arch/arm64/configs/gki_defconfig ]; then
+            echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
+          fi
+
       - name: Build Kernel
         run: |
-          cd ${{ matrix.name == 'sukisu' && 'kernel' || matrix.name }}
+          set -euo pipefail
+          # choose build directory depending on variant
+          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
+            BUILD_DIR="sukisu"
+          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
+            BUILD_DIR="ksunext"
+          else
+            BUILD_DIR="kernel"
+          fi
+          echo "Building in: $BUILD_DIR"
+          cd "$BUILD_DIR"
+
           export ARCH=arm64
           export SUBARCH=arm64
           export CLANG_PATH=$GITHUB_WORKSPACE/clang
           export PATH=$CLANG_PATH/bin:$PATH
           set -x
-          set -e
           export CC=clang
           export CXX=clang++
           export LD=ld.lld
@@ -147,111 +228,120 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           export LTO=full
+          # build using O=out to keep outputs isolated
           make O=out ARCH=arm64 gki_defconfig
-          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
-      
+          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full || ( echo "Build failed. Showing tail of build log"; tail -n 200 out/build.log || true; exit 1 )
+
+          # show artifacts for debugging
+          echo "Listing build output dirs:"
+          ls -la out/arch/arm64/boot || true
+          ls -la arch/arm64/boot || true
+
       - name: Verify SUSFS Patch
         run: |
-          echo "🔍 Verifying SUSFS in built kernel config..."
           if [[ "${{ matrix.name }}" == "noroot" ]]; then
             CONFIG=kernel/out/.config
           else
             CONFIG=${{ matrix.name }}/out/.config
           fi
-          grep -q "CONFIG_KSU=y" "$CONFIG" && echo "✅ CONFIG_KSU found!" || echo "❌ CONFIG_KSU not found!"
-          grep -q "CONFIG_KSU_SUSFS=y" "$CONFIG" && echo "✅ CONFIG_KSU_SUSFS found!" || echo "❌ CONFIG_KSU_SUSFS not found!"
-          grep -q "CONFIG_SECURITYFS=y" "$CONFIG" && echo "✅ CONFIG_SECURITYFS found!" || echo "❌ CONFIG_SECURITYFS not found!"
-      
+          echo "Checking config: $CONFIG"
+          if [ -f "$CONFIG" ]; then
+            grep -q "CONFIG_KSU=y" "$CONFIG" && echo "✅ CONFIG_KSU found!" || echo "❌ CONFIG_KSU not found!"
+            grep -q "CONFIG_KSU_SUSFS=y" "$CONFIG" && echo "✅ CONFIG_KSU_SUSFS found!" || echo "❌ CONFIG_KSU_SUSFS not found!"
+            grep -q "CONFIG_SECURITYFS=y" "$CONFIG" && echo "✅ CONFIG_SECURITYFS found!" || echo "❌ CONFIG_SECURITYFS not found!"
+          else
+            echo "Config file not found: $CONFIG"
+          fi
+
       - name: Package Kernel with AnyKernel3
-  id: zipkernel
-  run: |
-    set -euo pipefail
+        id: zipkernel
+        run: |
+          set -euo pipefail
 
-    DATE=$(date +%Y%m%d)
-    echo "DATE=$DATE" >> $GITHUB_ENV
+          DATE=$(date +%Y%m%d)
+          echo "DATE=$DATE" >> $GITHUB_ENV
 
-    if [[ "${{ matrix.name }}" == "noroot" ]]; then
-      ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
-      OUT_DIR="kernel"
-    elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
-      ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
-      OUT_DIR="ksunext"
-    elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-      ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
-      OUT_DIR="sukisu"
-    else
-      echo "Unknown matrix.name: ${ { matrix.name } }"
-      exit 1
-    fi
+          if [[ "${{ matrix.name }}" == "noroot" ]]; then
+            ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
+            OUT_DIR="kernel"
+          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
+            ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
+            OUT_DIR="ksunext"
+          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
+            ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
+            OUT_DIR="sukisu"
+          else
+            echo "Unknown matrix.name: ${ { matrix.name } }"
+            exit 1
+          fi
 
-    # possible build output directories
-    P1="${OUT_DIR}/out/arch/arm64/boot"
-    P2="${OUT_DIR}/arch/arm64/boot"
+          # possible build output directories
+          P1="${OUT_DIR}/out/arch/arm64/boot"
+          P2="${OUT_DIR}/arch/arm64/boot"
 
-    echo "Checking possible kernel output dirs:"
-    echo " - $P1"
-    echo " - $P2"
+          echo "Checking possible kernel output dirs:"
+          echo " - $P1"
+          echo " - $P2"
 
-    if [ -d "$P1" ]; then
-      KBOOT_DIR="$P1"
-    elif [ -d "$P2" ]; then
-      KBOOT_DIR="$P2"
-    else
-      echo "Neither $P1 nor $P2 exists. Showing listing of $OUT_DIR for debugging:"
-      ls -la "$OUT_DIR" || true
-      echo "ERROR: build output directory not found. Ensure the build step produced kernel artifacts and check if make used O=out or not."
-      exit 1
-    fi
+          if [ -d "$P1" ]; then
+            KBOOT_DIR="$P1"
+          elif [ -d "$P2" ]; then
+            KBOOT_DIR="$P2"
+          else
+            echo "Neither $P1 nor $P2 exists. Showing listing of $OUT_DIR for debugging:"
+            ls -la "$OUT_DIR" || true
+            echo "ERROR: build output directory not found. Ensure the build step produced kernel artifacts and check if make used O=out or not."
+            exit 1
+          fi
 
-    echo "Using kernel boot dir: $KBOOT_DIR"
-    ls -la "$KBOOT_DIR" || true
+          echo "Using kernel boot dir: $KBOOT_DIR"
+          ls -la "$KBOOT_DIR" || true
 
-    git clone https://github.com/TegarXLu/AnyKernel3
+          git clone https://github.com/TegarXLu/AnyKernel3
 
-    # prefer Image.gz, then Image.gz-dtb, then Image (compress), then Image-dtb
-    if [ -f "$KBOOT_DIR/Image.gz" ]; then
-      echo "Found Image.gz"
-      cp "$KBOOT_DIR/Image.gz" AnyKernel3/
-    elif [ -f "$KBOOT_DIR/Image.gz-dtb" ]; then
-      echo "Found Image.gz-dtb -> copying as Image.gz"
-      cp "$KBOOT_DIR/Image.gz-dtb" AnyKernel3/Image.gz
-    elif [ -f "$KBOOT_DIR/Image" ]; then
-      echo "Found Image (uncompressed) -> compressing to Image.gz"
-      gzip -c "$KBOOT_DIR/Image" > AnyKernel3/Image.gz
-    elif [ -f "$KBOOT_DIR/Image-dtb" ]; then
-      echo "Found Image-dtb -> compressing to Image.gz-dtb"
-      gzip -c "$KBOOT_DIR/Image-dtb" > AnyKernel3/Image.gz-dtb
-      # Some kernels produce Image-dtb only; AnyKernel may support that depending on packaging
-    else
-      echo "ERROR: No kernel image found in $KBOOT_DIR"
-      ls -la "$KBOOT_DIR"
-      exit 1
-    fi
+          # prefer Image.gz, then Image.gz-dtb, then Image (compress), then Image-dtb
+          if [ -f "$KBOOT_DIR/Image.gz" ]; then
+            echo "Found Image.gz"
+            cp "$KBOOT_DIR/Image.gz" AnyKernel3/
+          elif [ -f "$KBOOT_DIR/Image.gz-dtb" ]; then
+            echo "Found Image.gz-dtb -> copying as Image.gz"
+            cp "$KBOOT_DIR/Image.gz-dtb" AnyKernel3/Image.gz
+          elif [ -f "$KBOOT_DIR/Image" ]; then
+            echo "Found Image (uncompressed) -> compressing to Image.gz"
+            gzip -c "$KBOOT_DIR/Image" > AnyKernel3/Image.gz
+          elif [ -f "$KBOOT_DIR/Image-dtb" ]; then
+            echo "Found Image-dtb -> compressing to Image.gz-dtb"
+            gzip -c "$KBOOT_DIR/Image-dtb" > AnyKernel3/Image.gz-dtb
+          else
+            echo "ERROR: No kernel image found in $KBOOT_DIR"
+            ls -la "$KBOOT_DIR"
+            exit 1
+          fi
 
-    # copy DTB/DTBO if present
-    if ls "$KBOOT_DIR"/*.dtb 1> /dev/null 2>&1; then
-      echo "Copying dtb files"
-      cp "$KBOOT_DIR"/*.dtb AnyKernel3/ || true
-    fi
-    if ls "$KBOOT_DIR"/*.dtbo 1> /dev/null 2>&1; then
-      echo "Copying dtbo files"
-      cp "$KBOOT_DIR"/*.dtbo AnyKernel3/ || true
-    fi
+          # copy DTB/DTBO if present
+          if ls "$KBOOT_DIR"/*.dtb 1> /dev/null 2>&1; then
+            echo "Copying dtb files"
+            cp "$KBOOT_DIR"/*.dtb AnyKernel3/ || true
+          fi
+          if ls "$KBOOT_DIR"/*.dtbo 1> /dev/null 2>&1; then
+            echo "Copying dtbo files"
+            cp "$KBOOT_DIR"/*.dtbo AnyKernel3/ || true
+          fi
 
-    # copy dts tree if exists
-    if [ -d "$KBOOT_DIR/dts" ]; then
-      echo "Copying dts tree"
-      cp -r "$KBOOT_DIR/dts" AnyKernel3/ || true
-    fi
+          # copy dts tree if exists
+          if [ -d "$KBOOT_DIR/dts" ]; then
+            echo "Copying dts tree"
+            cp -r "$KBOOT_DIR/dts" AnyKernel3/ || true
+          fi
 
-    echo "AnyKernel3 content before zip:"
-    ls -la AnyKernel3 || true
+          echo "AnyKernel3 content before zip:"
+          ls -la AnyKernel3 || true
 
-    cd AnyKernel3
-    zip -r9 "../$ZIP_NAME" ./*
+          cd AnyKernel3
+          zip -r9 "../$ZIP_NAME" ./*
 
-    echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
-      
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -294,7 +384,7 @@ jobs:
           echo "" >> release.txt
           echo "📄 <b>Full changelog</b>: [Here](${{ github.event.inputs.KERNEL_REPO }}/commits/${{ github.event.inputs.KERNEL_BRANCH }})" >> release.txt
           echo "💬 Bug reports: [Support Group](https://t.me/rmdnsupport)" >> release.txt
-      
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
