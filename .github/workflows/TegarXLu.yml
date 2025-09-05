@@ -11,10 +11,6 @@ on:
         description: 'Branch kernel'
         required: true
         default: 'Templar'
-      BUILD_NOROOT:
-        description: 'Build Noroot variant'
-        type: boolean
-        default: true
       BUILD_KSUNEXT:
         description: 'Build KSUNext variant'
         type: boolean
@@ -46,10 +42,6 @@ jobs:
       - name: Set build matrix
         id: set-matrix
         run: |
-          MATRIX='['
-          if [ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]; then
-            MATRIX+='{"name":"noroot"},'
-          fi
           if [ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]; then
             MATRIX+='{"name":"ksunext"},'
           fi
@@ -118,10 +110,7 @@ jobs:
       
       - name: Set CONFIG_LOCALVERSION
         run: |
-          if [[ "${{ matrix.name }}" == "noroot" ]]; then
-            DEFCONFIG=kernel/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu"
-          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             DEFCONFIG=ksunext/arch/arm64/configs/gki_defconfig
             VERSION="-TegarXLu-KSUNext"
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
@@ -174,78 +163,78 @@ jobs:
           grep -q "CONFIG_SECURITYFS=y" "$CONFIG" && echo "✅ CONFIG_SECURITYFS found!" || echo "❌ CONFIG_SECURITYFS not found!"
       
       - name: Package Kernel with AnyKernel3
-  id: zipkernel
-  run: |
-    set -euo pipefail
+          id: zipkernel
+          run: |
+            set -euo pipefail
 
-    DATE=$(date +%Y%m%d)
-    echo "DATE=$DATE" >> $GITHUB_ENV
+            DATE=$(date +%Y%m%d)
+            echo "DATE=$DATE" >> $GITHUB_ENV
 
-    if [[ "${{ matrix.name }}" == "noroot" ]]; then
-      ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
-      OUT_DIR="kernel"
-    elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
-      ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
-      OUT_DIR="ksunext"
-    elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-      ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
-      OUT_DIR="sukisu"
-    else
-      echo "Unknown matrix name: ${ { matrix.name } }"
-      exit 1
-    fi
+            if [[ "${{ matrix.name }}" == "noroot" ]]; then
+              ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
+              OUT_DIR="kernel"
+            elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
+              ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
+              OUT_DIR="ksunext"
+            elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
+              ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
+              OUT_DIR="sukisu"
+            else
+              echo "Unknown matrix name: ${ { matrix.name } }"
+              exit 1
+            fi
 
-    # paths
-    KBOOT_DIR="$OUT_DIR/out/arch/arm64/boot"
-    echo "Looking for kernel images in: $KBOOT_DIR"
-    ls -la "$KBOOT_DIR" || true
+            # paths
+            KBOOT_DIR="$OUT_DIR/out/arch/arm64/boot"
+            echo "Looking for kernel images in: $KBOOT_DIR"
+            ls -la "$KBOOT_DIR" || true
 
-    git clone https://github.com/TegarXLu/AnyKernel3
+            git clone https://github.com/TegarXLu/AnyKernel3
 
-    # prefer Image.gz, then Image.gz-dtb, then Image (compress), then Image-dtb
-    if [ -f "$KBOOT_DIR/Image.gz" ]; then
-      echo "Found Image.gz"
-      cp "$KBOOT_DIR/Image.gz" AnyKernel3/
-    elif [ -f "$KBOOT_DIR/Image.gz-dtb" ]; then
-      echo "Found Image.gz-dtb -> copying as Image.gz"
-      cp "$KBOOT_DIR/Image.gz-dtb" AnyKernel3/Image.gz
-    elif [ -f "$KBOOT_DIR/Image" ]; then
-      echo "Found Image (uncompressed) -> compressing to Image.gz"
-      gzip -c "$KBOOT_DIR/Image" > AnyKernel3/Image.gz
-    elif [ -f "$KBOOT_DIR/Image-dtb" ]; then
-      echo "Found Image-dtb -> compressing to Image.gz-dtb"
-      gzip -c "$KBOOT_DIR/Image-dtb" > AnyKernel3/Image.gz-dtb
-      # also try to make Image.gz if any Image exists; otherwise AnyKernel may use Image.gz-dtb
-    else
-      echo "ERROR: No kernel image found in $KBOOT_DIR"
-      ls -la "$KBOOT_DIR"
-      exit 1
-    fi
+            # prefer Image.gz, then Image.gz-dtb, then Image (compress), then Image-dtb
+            if [ -f "$KBOOT_DIR/Image.gz" ]; then
+              echo "Found Image.gz"
+              cp "$KBOOT_DIR/Image.gz" AnyKernel3/
+            elif [ -f "$KBOOT_DIR/Image.gz-dtb" ]; then
+              echo "Found Image.gz-dtb -> copying as Image.gz"
+              cp "$KBOOT_DIR/Image.gz-dtb" AnyKernel3/Image.gz
+            elif [ -f "$KBOOT_DIR/Image" ]; then
+              echo "Found Image (uncompressed) -> compressing to Image.gz"
+              gzip -c "$KBOOT_DIR/Image" > AnyKernel3/Image.gz
+            elif [ -f "$KBOOT_DIR/Image-dtb" ]; then
+              echo "Found Image-dtb -> compressing to Image.gz-dtb"
+              gzip -c "$KBOOT_DIR/Image-dtb" > AnyKernel3/Image.gz-dtb
+              # also try to make Image.gz if any Image exists; otherwise AnyKernel may use Image.gz-dtb
+            else
+              echo "ERROR: No kernel image found in $KBOOT_DIR"
+              ls -la "$KBOOT_DIR"
+              exit 1
+            fi
 
-    # copy DTB/DTBO if present (some AnyKernel configs use dtbo/img)
-    if compgen -G "$KBOOT_DIR/*.dtb" > /dev/null; then
-      echo "Copying dtb files"
-      cp "$KBOOT_DIR"/*.dtb AnyKernel3/ || true
-    fi
-    if compgen -G "$KBOOT_DIR/*.dtbo" > /dev/null; then
-      echo "Copying dtbo files"
-      cp "$KBOOT_DIR"/*.dtbo AnyKernel3/ || true
-    fi
+            # copy DTB/DTBO if present (some AnyKernel configs use dtbo/img)
+            if compgen -G "$KBOOT_DIR/*.dtb" > /dev/null; then
+              echo "Copying dtb files"
+              cp "$KBOOT_DIR"/*.dtb AnyKernel3/ || true
+            fi
+            if compgen -G "$KBOOT_DIR/*.dtbo" > /dev/null; then
+              echo "Copying dtbo files"
+              cp "$KBOOT_DIR"/*.dtbo AnyKernel3/ || true
+            fi
 
-    # optional: copy dtb tree if exists
-    if [ -d "$KBOOT_DIR/dts" ]; then
-      echo "Copying dts tree"
-      cp -r "$KBOOT_DIR/dts" AnyKernel3/ || true
-    fi
+            # optional: copy dtb tree if exists
+            if [ -d "$KBOOT_DIR/dts" ]; then
+              echo "Copying dts tree"
+              cp -r "$KBOOT_DIR/dts" AnyKernel3/ || true
+            fi
 
-    # show AnyKernel3 contents for debugging
-    echo "AnyKernel3 content before zip:"
-    ls -la AnyKernel3 || true
+            # show AnyKernel3 contents for debugging
+            echo "AnyKernel3 content before zip:"
+            ls -la AnyKernel3 || true
 
-    cd AnyKernel3
-    zip -r9 "../$ZIP_NAME" ./*
+            cd AnyKernel3
+            zip -r9 "../$ZIP_NAME" ./*
 
-    echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+            echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
       
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -275,9 +264,6 @@ jobs:
       - name: Generate Release Notes
         run: |
           echo "🔧 **TegarXLu GKI Release**" > release.txt
-          if [[ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]]; then
-            echo "- 🧩 TegarXLu-GKI: Without root" >> release.txt
-          fi
           if [[ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]]; then
             echo "- 🛡️ TegarXLu-GKI-KSUNext+SUSFS: With root KernelSU Next + SUSFS" >> release.txt
           fi
