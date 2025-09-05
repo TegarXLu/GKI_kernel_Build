@@ -135,50 +135,50 @@ jobs:
         run: |
           echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
 
-      - name: Add temporary ksu shim (debug workaround)
-        run: |
-          set -e
-         # create shim file if not exist
-          
-           if [ ! -f fs/ksu_shim.c ]; then
-             cat > fs/ksu_shim.c <<'EOF'
-             /* fs/ksu_shim.c - temporary shim for missing ksu_escape_to_root symbol
-             * WARNING: temporary workaround only. Remove after upstream fix.
-             */
+        - name: Add temporary ksu shim (debug workaround)
+    run: |
+      set -e
+     # create shim file if not exist
+      
+       if [ ! -f fs/ksu_shim.c ]; then
+         cat > fs/ksu_shim.c <<'EOF'
+         /* fs/ksu_shim.c - temporary shim for missing ksu_escape_to_root symbol
+         * WARNING: temporary workaround only. Remove after upstream fix.
+         */
 
-               #include <linux/types.h>
-               #include <linux/errno.h>
-               #include <linux/sched.h>
-               #include <linux/kernel.h>
-               #include <linux/module.h>
-               #include <linux/export.h>
+           #include <linux/types.h>
+           #include <linux/errno.h>
+           #include <linux/sched.h>
+           #include <linux/kernel.h>
+           #include <linux/module.h>
+           #include <linux/export.h>
 
-               int ksu_escape_to_root(struct task_struct *task)
-               {
-               return -ENOSYS;
-               }
-               EXPORT_SYMBOL_GPL(ksu_escape_to_root);
+           int ksu_escape_to_root(struct task_struct *task)
+           {
+           return -ENOSYS;
+           }
+           EXPORT_SYMBOL_GPL(ksu_escape_to_root);
 
-               MODULE_LICENSE("GPL");
-               EOF
-               echo "Created fs/ksu_shim.c"
-               else
-               echo "fs/ksu_shim.c already exists, not overwriting"
-              fi
+           MODULE_LICENSE("GPL");
+           EOF
+           echo "Created fs/ksu_shim.c"
+           else
+           echo "fs/ksu_shim.c already exists, not overwriting"
+          fi
 
-            # append object to fs/Makefile if not already present
-              if [ -f fs/Makefile ]; then
-              if ! grep -q "ksu_shim.o" fs/Makefile; then
-               echo "" >> fs/Makefile
-               echo "# temporary shim to provide missing ksu_escape_to_root symbol" >> fs/Makefile
-               echo "obj-y += ksu_shim.o" >> fs/Makefile
-               echo "Appended obj-y += ksu_shim.o to fs/Makefile"
-               else
-               echo "fs/Makefile already references ksu_shim.o"
-            fi
-            else
-            echo "Warning: fs/Makefile not found; ensure correct path. Skipping Makefile modification."
-            fi
+        # append object to fs/Makefile if not already present
+          if [ -f fs/Makefile ]; then
+          if ! grep -q "ksu_shim.o" fs/Makefile; then
+           echo "" >> fs/Makefile
+           echo "# temporary shim to provide missing ksu_escape_to_root symbol" >> fs/Makefile
+           echo "obj-y += ksu_shim.o" >> fs/Makefile
+           echo "Appended obj-y += ksu_shim.o to fs/Makefile"
+           else
+           echo "fs/Makefile already references ksu_shim.o"
+        fi
+        else
+        echo "Warning: fs/Makefile not found; ensure correct path. Skipping Makefile modification."
+        fi
       
       - name: Final Clean Tree Commit (before build)
         run: |
