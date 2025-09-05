@@ -174,27 +174,6 @@ jobs:
           grep -q "CONFIG_KSU_SUSFS=y" "$CONFIG" && echo "✅ CONFIG_KSU_SUSFS found!" || echo "❌ CONFIG_KSU_SUSFS not found!"
           grep -q "CONFIG_SECURITYFS=y" "$CONFIG" && echo "✅ CONFIG_SECURITYFS found!" || echo "❌ CONFIG_SECURITYFS not found!"
       
-      - name: Package Kernel with AnyKernel3
-        id: zipkernel
-        run: |
-          DATE=$(date +%Y%m%d)
-          echo "DATE=$DATE" >> $GITHUB_ENV
-          if [[ "${{ matrix.name }}" == "noroot" ]]; then
-            ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
-            OUT_DIR="kernel"
-          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
-            ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
-            OUT_DIR="ksunext"
-          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
-            OUT_DIR="sukisu"
-          fi
-          git clone https://github.com/TegarXLu/AnyKernel3
-          cp $OUT_DIR/out/arch/arm64/boot/Image AnyKernel3/
-          cd AnyKernel3
-          zip -r9 "../$ZIP_NAME" ./*
-          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
-      
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
