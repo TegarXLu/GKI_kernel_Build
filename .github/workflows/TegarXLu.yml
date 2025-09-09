@@ -6,11 +6,11 @@ on:
       KERNEL_REPO:
         description: 'Link repo kernel'
         required: true
-        default: 'https://github.com/TegarXLu/Templar-Kernel-GKI-5.10'
+        default: 'https://github.com/TegarXLu/Templar-Kernel-GKI-5.10/tree/main'
       KERNEL_BRANCH:
         description: 'Branch kernel'
         required: true
-        default: 'Templar'
+        default: 'main'
       BUILD_NOROOT:
         description: 'Build Noroot variant'
         type: boolean
