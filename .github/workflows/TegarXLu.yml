@@ -92,11 +92,6 @@ jobs:
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
 
-            if: fromJSON(inputs.kernel_version) < 5.16
-        run: |
-          cd "$CONFIG/common"
-          patch -p1 -F 3 < "../../kernel_patches/gki_ptrace.patch"
-
       - name: Inject Variant Patch (KSU/SukiSU)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
