@@ -133,12 +133,12 @@ jobs:
           cd "ksunext"
           
           # Apply core SUSFS patches
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./common/
-          cd common
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./kernel/
+          cd kernel
           patch -p1 --forward < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch
           cd ..
-          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          cp ../susfs4ksu/kernel_patches/fs/* ./kernle/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./kernel/include/linux/
           
           # Apply KSU integration patches
           cd ./Wild_KSU
@@ -168,13 +168,13 @@ jobs:
           
       - name: Apply Hooks Patches
         run: |
-          cd "ksunext/common"
+          cd "ksunext/kernel"
           cp ../../kernel_patches/wild/hooks/scope_min_manual_hooks_v1.4.patch ./
           patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.4.patch
 
       - name: Apply Hide Stuff Patches
         run: |
-          cd "ksunext/common"
+          cd "ksunext/kernel"
           cp ../../kernel_patches/69_hide_stuff.patch ./
           patch -p1 --forward -F 3 < 69_hide_stuff.patch
      
@@ -200,6 +200,80 @@ jobs:
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
           echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
+
+      - name: Apply Kernel Configuration
+        run: |
+          cd "ksunext"
+          
+          defconfig="./kernel/arch/arm64/configs/gki_defconfig"
+          
+          echo "Applying kernel configurations one by one..."
+          
+          # KernelSU Core Configuration
+          echo "CONFIG_KSU=y" >> "$defconfig"
+          echo "CONFIG_KSU_KPROBES_HOOK=y" >> "$defconfig"
+          
+          # Mountify Support
+          echo "CONFIG_TMPFS_XATTR=y" >> "$defconfig"
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$defconfig"
+          
+          # Networking Configuration
+          echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$defconfig"
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$defconfig"
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$defconfig"
+          
+          # BBR TCP Congestion Control
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$defconfig"
+          echo "CONFIG_TCP_CONG_BBR=y" >> "$defconfig"
+          echo "CONFIG_NET_SCH_FQ=y" >> "$defconfig"
+          echo "CONFIG_TCP_CONG_BIC=n" >> "$defconfig"
+          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$defconfig"
+          echo "CONFIG_TCP_CONG_HTCP=n" >> "$defconfig"
+          
+          # IPSet support
+          echo "CONFIG_IP_SET=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_MAX=256" >> "$defconfig"
+          echo "CONFIG_IP_SET_BITMAP_IP=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_BITMAP_IPMAC=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_BITMAP_PORT=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_IP=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_IPPORT=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_IPPORTIP=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_IPPORTNET=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_NET=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_NETNET=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_NETPORT=y" >> "$defconfig"
+          echo "CONFIG_IP_SET_HASH_NETIFACE=y" >> "$defconfig"
+          
+          # SUSFS Configuration
+          echo "CONFIG_KSU_SUSFS=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$defconfig"
+          
+          # SUSFS Auto Mount Features
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$defconfig"
+          
+          # SUSFS Advanced Features
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$defconfig"
+          
+          # SUSFS Debugging and Security
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$defconfig"
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$defconfig"
+          
+          # Build Optimization Configuration
+          echo "CONFIG_LTO_CLANG_FULL=y" >> "$defconfig"
+          echo "CONFIG_LTO_CLANG=y" >> "$defconfig"
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$defconfig"
+          echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=n" >> "$defconfig"
       
       - name: Build Kernel
         run: |
@@ -230,7 +304,7 @@ jobs:
       - name: Verify SUSFS Patch
         run: |
           echo "🔍 Verifying SUSFS in built kernel config..."
-          if [[ "${{ matrix.name }}" == "noroot" ]]; then
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             CONFIG=kernel/out/.config
           else
             CONFIG=${{ matrix.name }}/out/.config
