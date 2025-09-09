@@ -97,7 +97,7 @@ jobs:
 
       - name: Clone Other Dependencies
         run: |
-          SUSFS_BRANCH="gki-android12-5.10{{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          SUSFS_BRANCH="gki-android12-5.10"
           
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "gki-android12-5.10"
           git clone https://github.com/WildKernels/kernel_patches.git
