@@ -116,66 +116,61 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs
           fi
 
-      - name: Apply SUSFS patches (with debug)
+      - name: Clone & inspect .susfs (debug friendly)
         run: |
           set -euo pipefail
+          set -x
 
-          kernel_patches="$(pwd)/.susfs/kernel_patches"
-          echo "kernel_patches = $kernel_patches"
-          if [ ! -d "$kernel_patches" ]; then
-            echo "No kernel_patches found, skipping."
-            exit 0
+          SUSFS_URL="https://gitlab.com/simonpunk/susfs4ksu.git"
+          SUSFS_BRANCH="gki-android12-5.10"
+          SUSFS_DIR=".susfs"
+
+          echo "Working dir: $(pwd)"
+          echo "Listing root:"
+          ls -la .
+
+          echo "Checking if branch exists on remote..."
+          if git ls-remote --heads "$SUSFS_URL" "$SUSFS_BRANCH" | grep -q "refs/heads/$SUSFS_BRANCH"; then
+            echo "Branch $SUSFS_BRANCH found on remote."
+          else
+            echo "ERROR: Branch $SUSFS_BRANCH NOT found on remote $SUSFS_URL"
+            echo "Available heads on remote (first 20):"
+            git ls-remote --heads "$SUSFS_URL" | sed -n '1,20p' || true
+            exit 1
           fi
 
-          set +e
-          for p in "$kernel_patches"/*.patch; do
-            [ -f "$p" ] || { echo "No .patch files"; break; }
-            echo "=== Processing patch: $p ==="
+          # clone or update
+          if [ ! -d "$SUSFS_DIR" ]; then
+            echo "Cloning $SUSFS_URL branch $SUSFS_BRANCH into $SUSFS_DIR"
+            git clone --depth=1 -b "$SUSFS_BRANCH" "$SUSFS_URL" "$SUSFS_DIR"
+          else
+            echo "$SUSFS_DIR exists — fetching/reset to $SUSFS_BRANCH"
+            (cd "$SUSFS_DIR" && git fetch --depth=1 origin "$SUSFS_BRANCH" && git reset --hard "origin/$SUSFS_BRANCH")
+          fi
 
-            echo "--- Patch header (first 40 lines) ---"
-            head -n 40 "$p" || true
-            echo "------------------------------------"
+          echo "Contents of $SUSFS_DIR (top-level):"
+          ls -la "$SUSFS_DIR" || true
 
-            # cek apakah sudah pernah applied (reverse)
-            if git apply --check --reverse "$p" >/dev/null 2>&1; then
-              echo "Patch already applied (reverse check OK). Skipping $p"
-              continue
+          kernel_patches="$(pwd)/$SUSFS_DIR/kernel_patches"
+          echo "Expecting kernel_patches at: $kernel_patches"
+
+          if [ ! -d "$kernel_patches" ]; then
+            echo "ERROR: kernel_patches folder NOT found under $SUSFS_DIR."
+            echo "Show $SUSFS_DIR tree (depth 3) for debugging:"
+            # print a small tree; if tree not available, use find
+            if command -v tree >/dev/null 2>&1; then
+              tree -L 3 "$SUSFS_DIR" || true
+            else
+              find "$SUSFS_DIR" -maxdepth 3 -type d -print -o -type f -print | sed 's|^|  |'
             fi
+            echo "---- End of debug. Please check that the branch and repository contain kernel_patches directory."
+            exit 1
+          fi
 
-            # coba git apply non-interaktif
-            if git apply --check "$p" >/dev/null 2>&1; then
-              echo "git apply OK -> applying $p"
-              git apply "$p"
-              continue
-            fi
+          echo "kernel_patches found. Listing files:"
+          ls -la "$kernel_patches" || true
 
-            # fallback ke patch, coba beberapa -p level
-            applied=false
-            for lvl in 0 1 2 3; do
-              if patch -p"$lvl" --dry-run < "$p" >/dev/null 2>&1; then
-                echo "dry-run success with -p$lvl, applying now..."
-                patch -p"$lvl" < "$p"
-                applied=true
-                break
-              else
-                echo "dry-run failed for -p$lvl"
-              fi
-            done
-
-            if [ "$applied" = false ]; then
-              echo "!!! Patch $p could not be applied cleanly."
-              echo "Creating reject files for inspection..."
-              # coba apply untuk menghasilkan .rej (jangan abort)
-              patch -p1 < "$p" || true
-
-              echo "--- .rej files (if any) ---"
-              find . -name '*.rej' -type f -print -exec printf "\n--- %p ---\n" {} \; -exec cat {} \; || true
-
-              echo "--- git status ---"
-              git status --porcelain || true
-            fi
-          done
-          set -e
+          echo "All good — proceed with copy/apply steps (not run in this step)."
         shell: bash
           
       - name: Download Clang
