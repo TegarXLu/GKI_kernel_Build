@@ -124,8 +124,8 @@ jobs:
           fi
           
       - name: Apply SUSFS Patches for KernelSU Variants
+        if: matrix.name != 'ksunext'
         run: |
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
           cd ksunext
           
           # Apply core SUSFS patches
