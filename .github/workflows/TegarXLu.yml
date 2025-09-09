@@ -158,7 +158,7 @@ jobs:
 
       - name: Getting KernelSU Version
         run: |
-          cd "$CONFIG/Wild_KSU/kernel"
+          cd "ksunext/Wild_KSU/kernel"
           BASE_VERSION=10200
           COMMIT_COUNT=$(/usr/bin/git rev-list --count HEAD)
           KSU_VERSION=$(expr $COMMIT_COUNT "+" $BASE_VERSION)
@@ -166,13 +166,13 @@ jobs:
           
       - name: Apply Hooks Patches
         run: |
-          cd "$CONFIG/common"
+          cd "ksunext/common"
           cp ../../kernel_patches/wild/hooks/scope_min_manual_hooks_v1.4.patch ./
           patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.4.patch
 
       - name: Apply Hide Stuff Patches
         run: |
-          cd "$CONFIG/common"
+          cd "ksunext/common"
           cp ../../kernel_patches/69_hide_stuff.patch ./
           patch -p1 --forward -F 3 < 69_hide_stuff.patch
      
