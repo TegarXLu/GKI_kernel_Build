@@ -198,8 +198,7 @@ jobs:
 
       - name: Apply Kernel Configuration
         run: |
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-          cd "ksunext"
+          cd "kernel"
           
           defconfig="./kernel/arch/arm64/configs/gki_defconfig"
           
