@@ -94,18 +94,15 @@ jobs:
      
       - name: Inject Variant Patch (KSU/SukiSU)
         run: |
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
+         if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
-            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s main
-            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs-main
-          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            cd sukisu
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-            git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 ../sus
-            cp -r ../sus/kernel_patches/fs . && cp -r ../sus/kernel_patches/include . && cp ../sus/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch .
-            patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
-          fi
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+         elif [[ "${{ matrix.variant }}" == "sukisu" ]]; then
+          cd sukisu
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+         fi
           
       - name: Download Clang
         run: |
@@ -174,23 +171,32 @@ jobs:
           grep -q "CONFIG_KSU_SUSFS=y" "$CONFIG" && echo "✅ CONFIG_KSU_SUSFS found!" || echo "❌ CONFIG_KSU_SUSFS not found!"
           grep -q "CONFIG_SECURITYFS=y" "$CONFIG" && echo "✅ CONFIG_SECURITYFS found!" || echo "❌ CONFIG_SECURITYFS not found!"
       
-      - name: Upload Artifact (AK3 and Images)
+      - name: Package Kernel with AnyKernel3
+        id: zipkernel
+        run: |
+          DATE=$(date +%Y%m%d)
+          echo "DATE=$DATE" >> $GITHUB_ENV
+          if [[ "${{ matrix.name }}" == "noroot" ]]; then
+            ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
+            OUT_DIR="kernel"
+          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
+            ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
+            OUT_DIR="ksunext"
+          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
+            ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
+            OUT_DIR="sukisu"
+          fi
+          git clone https://github.com/TegarXLu/AnyKernel3
+          cp $OUT_DIR/out/arch/arm64/boot/Image.gz AnyKernel3/
+          cd AnyKernel3
+          zip -r9 "../$ZIP_NAME" ./*
+          echo "zip_name=$ZIP_NAME" >> $GITHUB_OUTPUT
+      
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.BASE_NAME }}-${{ github.run_number }}
-          retention-days: 1
-          path: |
-            artifacts/*.zip
-            artifacts/*.img
-
-      - name: Upload Artifact (Info file)
-        if: ${{ env.STATUS }} == 'RELEASE'
-        uses: actions/upload-artifact@v4
-        with:
-          name: info-${{ github.run_number }}
-          retention-days: 1
-          path: |
-            artifacts/*.txt
+          name: ${{ steps.zipkernel.outputs.zip_name }}
+          path: ${{ steps.zipkernel.outputs.zip_name }}
 
   finalize:
     needs: [set-date, build]
