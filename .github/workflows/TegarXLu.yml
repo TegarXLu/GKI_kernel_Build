@@ -118,13 +118,13 @@ jobs:
       - name: Inject Variant Patch (KSUNEXT)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-            cd "ksunext"
+            cd ksunext
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
           fi
           
       - name: Apply SUSFS Patches for KernelSU Variants
         run: |
-          cd "ksunext"
+          cd ksunext
           
           # Apply core SUSFS patches
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./kernel/
