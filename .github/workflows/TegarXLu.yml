@@ -106,8 +106,8 @@ jobs:
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
       
-      - name: Setup Worktree (for ksunext)
-        if: matrix.name != 'ksunext'
+      - name: Setup Worktree (for ksunext/sukisu)
+        if: matrix.name != 'noroot'
         run: |
           cd kernel
           git config user.name "TegarXLu"
