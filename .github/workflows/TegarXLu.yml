@@ -11,22 +11,14 @@ on:
         description: 'Branch kernel'
         required: true
         default: 'main'
-      BUILD_NOROOT:
-        description: 'Build Noroot variant'
-        type: boolean
-        default: true
       BUILD_KSUNEXT:
         description: 'Build KSUNext variant'
         type: boolean
-        default: false
-      BUILD_SUKISU:
-        description: 'Build SukiSU variant'
-        type: boolean
-        default: false
+        default: true
       RELEASE:
         description: 'Release kernel?'
         type: boolean
-        default: false
+        default: true
 
 jobs:
   set-date:
@@ -47,14 +39,8 @@ jobs:
         id: set-matrix
         run: |
           MATRIX='['
-          if [ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]; then
-            MATRIX+='{"name":"noroot"},'
-          fi
           if [ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]; then
             MATRIX+='{"name":"ksunext"},'
-          fi
-          if [ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]; then
-            MATRIX+='{"name":"sukisu"},'
           fi
           MATRIX="${MATRIX%,}]"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
@@ -138,10 +124,6 @@ jobs:
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
-          elif [[ "${{ matrix.variant }}" == "sukisu" ]]; then
-            cd sukisu
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           fi
           
       - name: Apply SUSFS Patches for KernelSU Variants
@@ -225,7 +207,7 @@ jobs:
       
       - name: Build Kernel
         run: |
-          cd ${{ matrix.name == 'sukisu' && 'kernel' || matrix.name }}
+          cd ${{ matrix.name == 'ksunext' && 'kernel' || matrix.name }}
           export ARCH=arm64
           export SUBARCH=arm64
           export CLANG_PATH=$GITHUB_WORKSPACE/clang
@@ -266,15 +248,9 @@ jobs:
         run: |
           DATE=$(date +%Y%m%d)
           echo "DATE=$DATE" >> $GITHUB_ENV
-          if [[ "${{ matrix.name }}" == "noroot" ]]; then
-            ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
-            OUT_DIR="kernel"
-          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
             OUT_DIR="ksunext"
-          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
-            OUT_DIR="sukisu"
           fi
           git clone https://github.com/TegarXLu/AnyKernel3
           cp $OUT_DIR/out/arch/arm64/boot/Image.gz AnyKernel3/
@@ -310,19 +286,13 @@ jobs:
       - name: Generate Release Notes
         run: |
           echo "🔧 **TegarXLu GKI Release**" > release.txt
-          if [[ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]]; then
-            echo "- 🧩 TegarXLu-GKI: Without root" >> release.txt
-          fi
           if [[ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]]; then
             echo "- 🛡️ TegarXLu-GKI-KSUNext+SUSFS: With root KernelSU Next + SUSFS" >> release.txt
-          fi
-          if [[ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]]; then
-            echo "- 🦊 TegarXLu-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
           fi
           echo "" >> release.txt
           echo "📝 **Notes:**" >> release.txt
           echo "- Based on AOSP GKI 5.10" >> release.txt
-          echo "- SUSFS patch applied on SukiSU and KSUNext" >> release.txt
+          echo "- SUSFS patch applied on KSUNext" >> release.txt
           echo "- Can be used on GKI-based devices (Android 12-5.10)" >> release.txt
           echo "" >> release.txt
           echo "📄 <b>Full changelog</b>: [Here](${{ github.event.inputs.KERNEL_REPO }}/commits/${{ github.event.inputs.KERNEL_BRANCH }})" >> release.txt
