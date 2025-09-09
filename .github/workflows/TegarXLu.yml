@@ -97,10 +97,9 @@ jobs:
 
       - name: Clone Other Dependencies
         run: |
-          ANYKERNEL_BRANCH="gki-2.0"
-          SUSFS_BRANCH="gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}"
+          SUSFS_BRANCH="gki-android12-5.10{{ inputs.android_version }}-${{ inputs.kernel_version }}"
           
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "$SUSFS_BRANCH"
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "gki-android12-5.10"
           git clone https://github.com/WildKernels/kernel_patches.git
           
       - name: Clone Kernel Source
@@ -119,14 +118,9 @@ jobs:
       - name: Inject Variant Patch (KSUNEXT)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-            cd ksunext
+            cd "ksunext"
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
           fi
-
-      - name: Add KernelSU
-        run: |
-          cd "ksunext"
-          curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
           
       - name: Apply SUSFS Patches for KernelSU Variants
         run: |
