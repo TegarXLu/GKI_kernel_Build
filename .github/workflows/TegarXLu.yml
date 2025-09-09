@@ -95,13 +95,6 @@ jobs:
           sudo mkswap /swapfile
           sudo swapon /swapfile
 
-      - name: Clone Other Dependencies
-        run: |
-          SUSFS_BRANCH="gki-android12-5.10"
-          
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b "gki-android12-5.10"
-          git clone https://github.com/WildKernels/kernel_patches.git
-          
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
@@ -122,61 +115,15 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs
           fi
-          
-      - name: Apply SUSFS Patches for KernelSU Variants
-        if: matrix.name != 'ksunext'
-        run: |
-          cd kernel
-          
-          # Apply core SUSFS patches
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./kernel/
-          cd kernel
-          patch -p1 --forward < 50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch
-          cd ..
-          cp ../susfs4ksu/kernel_patches/fs/* ./kernle/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./kernel/include/linux/
-          
-          # Apply KSU integration patches
-          cd ./Wild_KSU
-          cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
-          patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
-          
-          # Apply compatibility fixes
-          cp ../../kernel_patches/wild/susfs_fix_patches/v1.5.9/fix_core_hook.c.patch ./
-          patch -p1 --forward --fuzz=3 < fix_core_hook.c.patch
-          
-          cp ../../kernel_patches/wild/susfs_fix_patches/v1.5.9/fix_rules.c.patch ./
-          patch -p1 --forward < fix_rules.c.patch
 
-          cp ../../kernel_patches/wild/susfs_fix_patches/v1.5.9/fix_sucompat.c.patch ./
-          patch -p1 --forward < fix_sucompat.c.patch
-
-          cp ../../kernel_patches/wild/susfs_fix_patches/v1.5.9/fix_kernel_compat.c.patch ./
-          patch -p1 --forward < fix_kernel_compat.c.patch
-
-      - name: Getting KernelSU Version
+      - name: Clone Other Dependencies
         run: |
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-          cd "ksunext/Wild_KSU/kernel"
-          BASE_VERSION=10200
-          COMMIT_COUNT=$(/usr/bin/git rev-list --count HEAD)
-          KSU_VERSION=$(expr $COMMIT_COUNT "+" $BASE_VERSION)
-          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10 .susfs
+          kernel_patches="$(pwd)/.susfs/kernel_patches"
+          cp -R $kernel_patches/fs/* ./fs
+          cp -R $kernel_patches/include/* ./include
+          patch -p1 <$kernel_patches/*.patch
           
-      - name: Apply Hooks Patches
-        run: |
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-          cd "ksunext/kernel"
-          cp ../../kernel_patches/wild/hooks/scope_min_manual_hooks_v1.4.patch ./
-          patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.4.patch
-
-      - name: Apply Hide Stuff Patches
-        run: |
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-          cd "ksunext/kernel"
-          cp ../../kernel_patches/69_hide_stuff.patch ./
-          patch -p1 --forward -F 3 < 69_hide_stuff.patch
-     
       - name: Download Clang
         run: |
           mkdir clang
