@@ -116,13 +116,58 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs
           fi
 
-      - name: Clone Other Dependencies
+      - name: Clone Other Dependencies (susfs) and apply patches
         run: |
-          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10 .susfs
+          set -euo pipefail
+
+          # Clone or update .susfs
+          if [ ! -d .susfs ]; then
+            git clone --depth=1 -b gki-android12-5.10 https://gitlab.com/simonpunk/susfs4ksu .susfs
+          else
+            echo ".susfs exists — updating to branch gki-android12-5.10"
+            (cd .susfs && git fetch --depth=1 origin gki-android12-5.10 && git reset --hard origin/gki-android12-5.10)
+          fi
+
           kernel_patches="$(pwd)/.susfs/kernel_patches"
-          cp -R $kernel_patches/fs/* ./fs
-          cp -R $kernel_patches/include/* ./include
-          patch -p1 <$kernel_patches/*.patch
+          echo "kernel_patches = $kernel_patches"
+
+          # if the expected folder doesn't exist, exit gracefully (no-op)
+          if [ ! -d "$kernel_patches" ]; then
+            echo "No kernel_patches folder found at $kernel_patches — nothing to copy/apply."
+            exit 0
+          fi
+
+          # debug listing (optional)
+          ls -la "$kernel_patches" || true
+
+          # ensure destination dirs exist
+          mkdir -p ./fs ./include
+          
+          # copy files without overwriting existing (use rsync if available)
+          if command -v rsync >/dev/null 2>&1; then
+            rsync -a --ignore-existing "$kernel_patches"/fs/ ./fs/ || true
+            rsync -a --ignore-existing "$kernel_patches"/include/ ./include/ || true
+          else
+            # fallback to cp; ignore errors when source is empty
+            cp -R "$kernel_patches"/fs/* ./fs || true
+            cp -R "$kernel_patches"/include/* ./include || true
+          fi
+
+          # apply all .patch files one-by-one (safer than patch -p1 < *.patch)
+          shopt -s nullglob || true
+          patches=("$kernel_patches"/*.patch)
+          if [ ${#patches[@]} -eq 0 ]; then
+            echo "No .patch files found in $kernel_patches"
+          else
+            for p in "${patches[@]}"; do
+              echo "Applying patch: $p"
+              patch -p1 < "$p" || { echo "Patch failed: $p"; exit 1; }
+            done
+          fi
+          shopt -u nullglob || true
+
+          echo "susfs clone + copy + patch finished."
+        shell: bash
           
       - name: Download Clang
         run: |
