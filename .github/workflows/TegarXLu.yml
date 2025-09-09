@@ -92,6 +92,14 @@ jobs:
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
 
+      - name: Get KernelSU variant refs and links
+        run: |
+          # Get WKSU latest commit from wild branch
+          WKSU_REF=$(git ls-remote "https://github.com/WildKernels/Wild_KSU.git" refs/heads/wild | awk '{print $1}')
+          WKSU_URL="https://github.com/WildKernels/Wild_KSU/commit/$WKSU_REF"
+          echo "WKSU_REF=$WKSU_REF" >> $GITHUB_ENV
+          echo "WKSU_URL=$WKSU_URL" >> $GITHUB_ENV
+
       - name: Inject Variant Patch (KSU/SukiSU)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
