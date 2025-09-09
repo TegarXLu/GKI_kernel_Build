@@ -107,9 +107,9 @@ jobs:
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
       
       - name: Setup Worktree (for ksunext/sukisu)
-        if: matrix.name != 'noroot'
+        if: matrix.name != 'ksunext'
         run: |
-          cd kernel
+          cd ksunext
           git config user.name "TegarXLu"
           git config user.email "dimasnasution776@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
@@ -125,7 +125,8 @@ jobs:
           
       - name: Apply SUSFS Patches for KernelSU Variants
         run: |
-          cd kernel
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
+          cd ksunext
           
           # Apply core SUSFS patches
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./kernel/
@@ -155,6 +156,7 @@ jobs:
 
       - name: Getting KernelSU Version
         run: |
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
           cd "ksunext/Wild_KSU/kernel"
           BASE_VERSION=10200
           COMMIT_COUNT=$(/usr/bin/git rev-list --count HEAD)
@@ -163,12 +165,14 @@ jobs:
           
       - name: Apply Hooks Patches
         run: |
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
           cd "ksunext/kernel"
           cp ../../kernel_patches/wild/hooks/scope_min_manual_hooks_v1.4.patch ./
           patch -p1 --forward -F 3 < scope_min_manual_hooks_v1.4.patch
 
       - name: Apply Hide Stuff Patches
         run: |
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
           cd "ksunext/kernel"
           cp ../../kernel_patches/69_hide_stuff.patch ./
           patch -p1 --forward -F 3 < 69_hide_stuff.patch
@@ -198,6 +202,7 @@ jobs:
 
       - name: Apply Kernel Configuration
         run: |
+          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
           cd "ksunext"
           
           defconfig="./kernel/arch/arm64/configs/gki_defconfig"
