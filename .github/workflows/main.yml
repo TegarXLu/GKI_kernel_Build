@@ -80,13 +80,11 @@ jobs:
      
       - name: Inject Variant Patch (SukiSU)
         run: |
-          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            cd sukisu
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-            git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 ../sus
-            cp -r ../sus/kernel_patches/fs . && cp -r ../sus/kernel_patches/include . && cp ../sus/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch .
-            patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
-          fi
+         if [[ "${{ matrix.variant }}" == "sukisu" ]]; then
+           cd sukisu
+           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
+           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+         fi
           
       - name: Download Clang
         run: |
