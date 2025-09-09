@@ -95,7 +95,7 @@ jobs:
       - name: Inject Variant Patch (KSU/SukiSU)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
-            cd "$CONFIG"
+            cd ksunext
           curl -LSs "https://raw.githubusercontent.com/WildKernels/Wild_KSU/wild/kernel/setup.sh" | bash -s wild
           elif [[ "${{ matrix.variant }}" == "sukisu" ]]; then
             cd sukisu
