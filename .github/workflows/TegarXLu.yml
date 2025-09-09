@@ -96,7 +96,7 @@ jobs:
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
-            curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+            curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s main
             curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
           elif [[ "${{ matrix.variant }}" == "sukisu" ]]; then
             cd sukisu
