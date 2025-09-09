@@ -200,7 +200,7 @@ jobs:
         run: |
           cd "kernel"
           
-          defconfig="./kernel/arch/arm64/configs/gki_defconfig"
+          defconfig="kernel/arch/arm64/configs/gki_defconfig"
           
           echo "Applying kernel configurations one by one..."
           
