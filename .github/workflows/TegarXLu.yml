@@ -176,7 +176,7 @@ jobs:
             fi
           done
           set -e
-         shell: bash
+        shell: bash
           
       - name: Download Clang
         run: |
