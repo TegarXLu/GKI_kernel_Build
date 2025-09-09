@@ -125,7 +125,7 @@ jobs:
           
       - name: Apply SUSFS Patches for KernelSU Variants
         run: |
-          cd ksunext
+          cd kernel
           
           # Apply core SUSFS patches
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.android_version }}-${{ inputs.kernel_version }}.patch ./kernel/
