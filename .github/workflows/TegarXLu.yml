@@ -11,14 +11,22 @@ on:
         description: 'Branch kernel'
         required: true
         default: 'main'
+      BUILD_NOROOT:
+        description: 'Build Noroot variant'
+        type: boolean
+        default: true
       BUILD_KSUNEXT:
         description: 'Build KSUNext variant'
         type: boolean
-        default: true
+        default: false
+      BUILD_SUKISU:
+        description: 'Build SukiSU variant'
+        type: boolean
+        default: false
       RELEASE:
         description: 'Release kernel?'
         type: boolean
-        default: true
+        default: false
 
 jobs:
   set-date:
@@ -39,8 +47,14 @@ jobs:
         id: set-matrix
         run: |
           MATRIX='['
+          if [ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]; then
+            MATRIX+='{"name":"noroot"},'
+          fi
           if [ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]; then
             MATRIX+='{"name":"ksunext"},'
+          fi
+          if [ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]; then
+            MATRIX+='{"name":"sukisu"},'
           fi
           MATRIX="${MATRIX%,}]"
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
@@ -58,19 +72,17 @@ jobs:
           sudo apt update
           sudo apt install -y git wget curl build-essential bc bison \
             flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip
-      
       - name: Create Swap
         run: |
           sudo fallocate -l 10G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
-
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
       
-      - name: Setup Worktree (for ksunext)
+      - name: Setup Worktree (for ksunext/sukisu)
         if: matrix.name != 'noroot'
         run: |
           cd kernel
@@ -78,15 +90,20 @@ jobs:
           git config user.email "dimasnasution776@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
-
-      - name: Inject Variant Patch (KSUNEXT)
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git
+     
+      - name: Inject Variant Patch (KSU/SukiSU)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
-            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s main
-            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s main-susfs
+            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs
+          elif [[ "${{ matrix.variant }}" == "sukisu" ]]; then
+            cd sukisu
+            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
+            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           fi
-
+          
       - name: Download Clang
         run: |
           mkdir clang
@@ -99,9 +116,15 @@ jobs:
       
       - name: Set CONFIG_LOCALVERSION
         run: |
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
+          if [[ "${{ matrix.name }}" == "noroot" ]]; then
+            DEFCONFIG=kernel/arch/arm64/configs/gki_defconfig
+            VERSION="-TegarXLu"
+          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
             DEFCONFIG=ksunext/arch/arm64/configs/gki_defconfig
             VERSION="-TegarXLu-KSUNext"
+          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
+            DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
+            VERSION="-TegarXLu-SukiSU"
           fi
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
@@ -109,10 +132,10 @@ jobs:
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
           echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
-
+      
       - name: Build Kernel
         run: |
-          cd ${{ matrix.name == 'ksunext' && 'kernel' || matrix.name }}
+          cd ${{ matrix.name == 'sukisu' && 'kernel' || matrix.name }}
           export ARCH=arm64
           export SUBARCH=arm64
           export CLANG_PATH=$GITHUB_WORKSPACE/clang
@@ -139,7 +162,7 @@ jobs:
       - name: Verify SUSFS Patch
         run: |
           echo "🔍 Verifying SUSFS in built kernel config..."
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
+          if [[ "${{ matrix.name }}" == "noroot" ]]; then
             CONFIG=kernel/out/.config
           else
             CONFIG=${{ matrix.name }}/out/.config
@@ -153,9 +176,15 @@ jobs:
         run: |
           DATE=$(date +%Y%m%d)
           echo "DATE=$DATE" >> $GITHUB_ENV
-          if [[ "${{ matrix.name }}" == "ksunext" ]]; then
+          if [[ "${{ matrix.name }}" == "noroot" ]]; then
+            ZIP_NAME="TegarXLu-GKI-${DATE}.zip"
+            OUT_DIR="kernel"
+          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
             ZIP_NAME="TegarXLu-GKI-KSUNext+SUSFS-${DATE}.zip"
             OUT_DIR="ksunext"
+          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
+            ZIP_NAME="TegarXLu-GKI-SukiSU+SUSFS-${DATE}.zip"
+            OUT_DIR="sukisu"
           fi
           git clone https://github.com/TegarXLu/AnyKernel3
           cp $OUT_DIR/out/arch/arm64/boot/Image.gz AnyKernel3/
@@ -191,13 +220,19 @@ jobs:
       - name: Generate Release Notes
         run: |
           echo "🔧 **TegarXLu GKI Release**" > release.txt
+          if [[ "${{ github.event.inputs.BUILD_NOROOT }}" == "true" ]]; then
+            echo "- 🧩 TegarXLu-GKI: Without root" >> release.txt
+          fi
           if [[ "${{ github.event.inputs.BUILD_KSUNEXT }}" == "true" ]]; then
             echo "- 🛡️ TegarXLu-GKI-KSUNext+SUSFS: With root KernelSU Next + SUSFS" >> release.txt
+          fi
+          if [[ "${{ github.event.inputs.BUILD_SUKISU }}" == "true" ]]; then
+            echo "- 🦊 TegarXLu-GKI-SukiSU+SUSFS: With root SukiSU + SUSFS" >> release.txt
           fi
           echo "" >> release.txt
           echo "📝 **Notes:**" >> release.txt
           echo "- Based on AOSP GKI 5.10" >> release.txt
-          echo "- SUSFS patch applied on KSUNext" >> release.txt
+          echo "- SUSFS patch applied on SukiSU and KSUNext" >> release.txt
           echo "- Can be used on GKI-based devices (Android 12-5.10)" >> release.txt
           echo "" >> release.txt
           echo "📄 <b>Full changelog</b>: [Here](${{ github.event.inputs.KERNEL_REPO }}/commits/${{ github.event.inputs.KERNEL_BRANCH }})" >> release.txt
