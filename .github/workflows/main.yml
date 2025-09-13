@@ -102,12 +102,6 @@ jobs:
           git add sus
           git commit -m "Fix KernelSU & sus state after setup.sh injection" || true
 
-      - name: Final Clean Tree Commit (before build)
-        run: |
-          cd kernel
-          git add .
-          git commit -m "Final clean tree before build" || true
-          
       - name: Download Clang
         run: |
           mkdir clang
@@ -130,6 +124,12 @@ jobs:
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
           echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
+
+      - name: Final Clean Tree Commit (before build)
+        run: |
+          cd kernel
+          git add .
+          git commit -m "Final clean tree before build" || true
       
       - name: Build Kernel
         run: |
