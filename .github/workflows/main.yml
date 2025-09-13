@@ -53,6 +53,11 @@ jobs:
     name: Build ${{ matrix.name }}
 
     steps:
+      - name: Setup git identity
+        run: |
+          git config --global user.name "kaminari"
+          git config --global user.email "itawanri14@gmail.com"
+   
       - name: Set up dependencies
         run: |
           sudo apt update
@@ -67,17 +72,7 @@ jobs:
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
-      
-      - name: Setup Worktree (for ksunext/sukisu)
-        if: matrix.name != 'noroot'
-        run: |
-          cd kernel
-          git config user.name "TegarXLu"
-          git config user.email "dimasnasution776@gmail.com"
-          git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
-          git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
-     
+          
       - name: Apply SukiSU Patch
         run: |
           cd kernel
