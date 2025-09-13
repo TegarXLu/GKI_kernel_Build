@@ -87,16 +87,6 @@ jobs:
           cp -R $kernel_patches/include/* ./include
           patch -p1 <$kernel_patches/*.patch
 
-      - name: Fix KernelSU and sus directory state
-        run: |
-          cd kernel
-          rm -rf KernelSU/.git || true
-          rm -rf sus/.git || true
-          git rm --cached KernelSU || true
-          git rm --cached sus || true
-          git add KernelSU
-          git add sus
-          git commit -m "Fix KernelSU & sus state after setup.sh injection" || true
       - name: Download Clang
         run: |
           mkdir clang
