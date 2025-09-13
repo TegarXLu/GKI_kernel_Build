@@ -78,13 +78,35 @@ jobs:
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
      
-      - name: Inject Variant Patch (SukiSU)
+      - name: Apply SukiSU Patch
         run: |
-         if [[ "${{ matrix.variant }}" == "sukisu" ]]; then
-           cd sukisu
-           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
-           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-         fi
+          cd kernel
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
+          git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 sus
+          rm -rf sus/.git
+          susfs=sus/kernel_patches
+          cp -r $susfs/fs .
+          cp -r $susfs/include .
+          cp -r $susfs/50_add_susfs_in_gki-android12-5.10.patch .
+          patch -p1 < 50_add_susfs_in_gki-android12-5.10.patch
+
+      - name: Fix KernelSU and sus directory state
+        run: |
+          cd kernel
+          rm -rf KernelSU/.git || true
+          rm -rf sus/.git || true
+          git rm --cached KernelSU || true
+          git rm --cached sus || true
+          git add KernelSU
+          git add sus
+          git commit -m "Fix KernelSU & sus state after setup.sh injection" || true
+
+      - name: Final Clean Tree Commit (before build)
+        run: |
+          cd kernel
+          git add .
+          git commit -m "Final clean tree before build" || true
           
       - name: Download Clang
         run: |
