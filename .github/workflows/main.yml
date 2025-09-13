@@ -10,7 +10,7 @@ on:
       KERNEL_BRANCH:
         description: 'Branch kernel'
         required: true
-        default: 'Templar'
+        default: 'main'
       BUILD_SUKISU:
         description: 'Build SukiSU variant'
         type: boolean
@@ -109,7 +109,7 @@ jobs:
       
       - name: Set Kernel EXTRAVERSION and Disable Localversion Script
         run: |
-          cd gki/common
+          cd kernel
           echo "" > scripts/setlocalversion
           chmod +x scripts/setlocalversion
 
