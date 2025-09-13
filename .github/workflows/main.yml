@@ -53,6 +53,7 @@ jobs:
     name: Build ${{ matrix.name }}
 
     steps:
+      steps:
       - name: Set up dependencies
         run: |
           sudo apt update
