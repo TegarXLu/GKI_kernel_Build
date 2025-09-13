@@ -76,7 +76,7 @@ jobs:
           git config user.email "dimasnasution776@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
-     - name: Apply SukiSU Patch
+      - name: Apply SukiSU Patch
         run: |
           cd kernel
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
