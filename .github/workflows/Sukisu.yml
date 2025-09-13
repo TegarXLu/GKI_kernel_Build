@@ -6,7 +6,7 @@ on:
       KERNEL_REPO:
         description: 'Link repo kernel'
         required: true
-        default: 'https://github.com/TegarXLu/Templar-Kernel-GKI-5.10'
+        default: 'https://github.com/TegarXLu/TegarXLu-Kernel-GKI-5.10'
       KERNEL_BRANCH:
         description: 'Branch kernel'
         required: true
