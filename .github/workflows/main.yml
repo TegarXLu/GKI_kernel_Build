@@ -1,4 +1,4 @@
-name: build-TegarXLu_Kernel
+name: build-TegarXLu_Kernel_test
 
 on:
   workflow_dispatch:
