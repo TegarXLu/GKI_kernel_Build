@@ -55,8 +55,8 @@ jobs:
     steps:
       - name: Setup git identity
         run: |
-          git config --global user.name "kaminari"
-          git config --global user.email "itawanri14@gmail.com"
+          git config --global user.name "TegarXLu"
+          git config --global user.email "botdimas67@gmail.com"
    
       - name: Set up dependencies
         run: |
