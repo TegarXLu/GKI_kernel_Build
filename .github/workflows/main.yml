@@ -112,14 +112,18 @@ jobs:
           export PATH=$GITHUB_WORKSPACE/clang/bin:$PATH
           clang --version || exit 1
       
-      - name: Set CONFIG_LOCALVERSION
+      - name: Set Kernel EXTRAVERSION and Disable Localversion Script
         run: |
-          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu-SukiSU"
+          cd gki/common
+          echo "" > scripts/setlocalversion
+          chmod +x scripts/setlocalversion
+
+          # Update or append EXTRAVERSION
+          if grep -q '^EXTRAVERSION *=' Makefile; then
+            sed -i 's/^EXTRAVERSION *=.*/EXTRAVERSION = -Aetherium2.1-Genesis-SukiSUxSUSFS/' Makefile
+          else
+            echo 'EXTRAVERSION = -TegarXLu-Templar-SukiSUxSUSFS' >> Makefile
           fi
-          sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
-          echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
       
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
