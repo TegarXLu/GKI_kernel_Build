@@ -74,22 +74,22 @@ jobs:
           git clone https://github.com/garnet-random/android_kernel_xiaomi_sm7435-modules.git modules
 
       - name: Clone Sukisu Ultra (KernelSU fork)
-        if: ${{ matrix.build_mode == 'default' }}
+        if: ${{ matrix.build_mode == 'sukisu' }}
         run: |
           git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git sukisu-ultra
 
       - name: Integrate Sukisu Ultra into kernel
-        if: ${{ matrix.build_mode == 'default' }}
+        if: ${{ matrix.build_mode == 'sukisu' }}
         run: |
           cd kernel
           bash ../sukisu-ultra/kernel/setup.sh susfs-main
 
       - name: Clone SUSFS module
-        if: ${{ matrix.build_mode == 'default' }}
+        if: ${{ matrix.build_mode == 'sukisu' }}
         run: git clone https://github.com/sidex15/susfs4ksu-module.git susfs
 
       - name: Integrate SUSFS into kernel
-        if: ${{ matrix.build_mode == 'default' }}
+        if: ${{ matrix.build_mode == 'sukisu' }}
         run: |
           cd kernel
           # Terapkan patch SUSFS ke kernel
