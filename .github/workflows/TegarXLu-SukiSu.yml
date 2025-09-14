@@ -73,15 +73,6 @@ jobs:
         run: |
           git clone https://github.com/garnet-random/android_kernel_xiaomi_sm7435-modules.git modules
 
-      - name: Setup Worktree (for sukisu)
-        if: matrix.name != 'noroot'
-        run: |
-          cd kernel
-          git config user.name "TegarXLu"
-          git config user.email "dimasnasution776@gmail.com"
-          git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
-          git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
-
       - name: Clone Sukisu Ultra (KernelSU fork)
         if: ${{ matrix.build_mode == 'default' }}
         run: |
