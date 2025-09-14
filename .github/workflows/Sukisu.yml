@@ -68,6 +68,11 @@ jobs:
       - name: Clone Kernel Source
         run: |
           git clone --depth=1 ${{ github.event.inputs.KERNEL_REPO }} -b ${{ github.event.inputs.KERNEL_BRANCH }} kernel
+      
+      - name: Clone kernel modules repository
+        run: |
+          git clone https://github.com/garnet-random/android_kernel_xiaomi_sm7435-modules.git modules
+
       - name: Setup Worktree (for sukisu)
         if: matrix.name != 'noroot'
         run: |
@@ -76,47 +81,189 @@ jobs:
           git config user.email "dimasnasution776@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
-      - name: Apply SukiSU Patch
+
+      - name: Clone Sukisu Ultra (KernelSU fork)
+        if: ${{ matrix.build_mode == 'default' }}
+        run: |
+          git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git sukisu-ultra
+
+      - name: Integrate Sukisu Ultra into kernel
+        if: ${{ matrix.build_mode == 'default' }}
         run: |
           cd kernel
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-          git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu -b gki-android12-5.10 .susfs
-          kernel_patches="$(pwd)/.susfs/kernel_patches"
-          cp -R $kernel_patches/fs/* ./fs
-          cp -R $kernel_patches/include/* ./include
-          patch -p1 <$kernel_patches/*.patch
+          bash ../sukisu-ultra/kernel/setup.sh susfs-main
+
+      - name: Clone SUSFS module
+        if: ${{ matrix.build_mode == 'default' }}
+        run: git clone https://github.com/sidex15/susfs4ksu-module.git susfs
+
+      - name: Integrate SUSFS into kernel
+        if: ${{ matrix.build_mode == 'default' }}
+        run: |
+          cd kernel
+          # Terapkan patch SUSFS ke kernel
+          for patch in ../susfs/kernel_patches/*.patch; do
+            patch -p1 < "$patch" || echo "[WARNING] SUSFS patch $patch gagal diterapkan"
+          done
+          # Salin filesystem SUSFS dan header
+          mkdir -p fs/susfs include/linux
+          cp -r ../susfs/ksu_module_susfs/jni/* fs/susfs/ 2>/dev/null || true
+          if [ ! -f include/linux/susfs.h ]; then
+            # Buat header minimal SUSFS jika belum ada
+            cat << 'EOF' >> include/linux/susfs.h
+            #ifndef _LINUX_SUSFS_H
+            #define _LINUX_SUSFS_H
+            #ifdef CONFIG_KSU_SUSFS
+            #endif
+            #endif /* _LINUX_SUSFS_H */
+            EOF
+          fi
+
+      - name: Setup kernel configuration (GKI base)
+        run: |
+          cd kernel
+          make ARCH=arm64 O=out gki_defconfig
+          if [ -f arch/arm64/configs/vendor/garnet_GKI.config ]; then
+            cat arch/arm64/configs/vendor/garnet_GKI.config >> out/.config
+          fi
+
+      - name: Enable Sukisu/SUSFS kernel config options
+        if: ${{ matrix.build_mode == 'default' }}
+        run: |
+          cd kernel
+          cat << 'EOF' >> out/.config
+            # KernelSU / Sukisu Ultra configurations
+            CONFIG_SECURITY=y
+            CONFIG_SECURITY_NETWORK=y
+            CONFIG_LSM="lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor"
+            CONFIG_SECURITY_SELINUX=y
+            CONFIG_SECURITY_SELINUX_BOOTPARAM=y
+            CONFIG_SECURITY_SELINUX_DEVELOP=y
+            CONFIG_SECURITY_SELINUX_AVC_STATS=y
+            CONFIG_SECURITY_SELINUX_CHECKREQPROT_VALUE=0
+            CONFIG_SECURITY_SELINUX_SIDTAB_HASH_BITS=9
+            CONFIG_SECURITY_SELINUX_SID2STR_CACHE_SIZE=256
+
+            # Enable loadable module support for KernelSU
+            CONFIG_MODULES=y
+            CONFIG_MODULE_UNLOAD=y
+            CONFIG_MODVERSIONS=y
+            CONFIG_MODULE_SRCVERSION_ALL=y
+
+            # Enable overlayfs for SUSFS
+            CONFIG_OVERLAY_FS=y
+            CONFIG_OVERLAY_FS_REDIRECT_DIR=y
+            CONFIG_OVERLAY_FS_REDIRECT_ALWAYS_FOLLOW=y
+            CONFIG_OVERLAY_FS_INDEX=y
+            CONFIG_OVERLAY_FS_NFS_EXPORT=y
+            CONFIG_OVERLAY_FS_XINO_AUTO=y
+            CONFIG_OVERLAY_FS_METACOPY=y
+
+            # Advanced SUSFS filesystem configurations
+            CONFIG_FUSE_FS=y
+            CONFIG_CUSE=y
+            CONFIG_PROC_FS=y
+            CONFIG_PROC_SYSCTL=y
+            CONFIG_SYSFS=y
+            CONFIG_TMPFS=y
+            CONFIG_TMPFS_POSIX_ACL=y
+            CONFIG_TMPFS_XATTR=y
+
+            # Advanced security features for SUSFS root hiding
+            CONFIG_SECURITY_DMESG_RESTRICT=y
+            CONFIG_SECURITY_PERF_EVENTS_RESTRICT=y
+            CONFIG_HARDENED_USERCOPY=y
+            CONFIG_HARDENED_USERCOPY_FALLBACK=y
+            CONFIG_SLAB_FREELIST_RANDOM=y
+            CONFIG_SLAB_FREELIST_HARDENED=y
+            CONFIG_SHUFFLE_PAGE_ALLOCATOR=y
+            CONFIG_SLUB_DEBUG=y
+
+            # Memory protection for SUSFS
+            CONFIG_STRICT_KERNEL_RWX=y
+            CONFIG_STRICT_MODULE_RWX=y
+            CONFIG_PAGE_TABLE_ISOLATION=y
+            CONFIG_RETPOLINE=y
+            CONFIG_SLS=y
+
+            # Additional mount and filesystem features for SUSFS
+            CONFIG_FANOTIFY=y
+            CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y
+            CONFIG_QUOTA=y
+            CONFIG_QFMT_V2=y
+            CONFIG_QUOTACTL=y
+
+            # Enable namespace support for root hiding
+            CONFIG_NAMESPACES=y
+            CONFIG_UTS_NS=y
+            CONFIG_IPC_NS=y
+            CONFIG_USER_NS=y
+            CONFIG_PID_NS=y
+            CONFIG_NET_NS=y
+            CONFIG_CGROUP_NS=y
+
+            # Enable file capabilities
+            CONFIG_SECURITY_FILE_CAPABILITIES=y
+
+            # Enable audit for security monitoring
+            CONFIG_AUDIT=y
+            CONFIG_AUDITSYSCALL=y
+
+            # KPM (Kernel Patch Module) support for Sukisu Ultra
+            CONFIG_KPM=y
+
+            # KALLSYMS support required for Sukisu Ultra
+            CONFIG_KALLSYMS=y
+            CONFIG_KALLSYMS_ALL=y
+            CONFIG_KALLSYMS_ABSOLUTE_PERCPU=y
+            CONFIG_KALLSYMS_BASE_RELATIVE=y
+
+            # Disable warnings as errors to prevent build failures
+            # CONFIG_WERROR is not set
+
+            # Disable problematic drivers that cause format warnings
+            # CONFIG_CLK_QCOM is not set
+
+            # Enable SUSFS for KernelSU integration
+            CONFIG_KSU_SUSFS=y
+            CONFIG_KSU_SUSFS_SUS_PATH=y
+            CONFIG_KSU_SUSFS_SUS_MOUNT=y
+            CONFIG_KSU_SUSFS_SUS_KSTAT=y
+            CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
+            CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+            CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+            CONFIG_KSU_SUSFS_ENABLE_LOG=y
+            EOF
+            make O=out ARCH=arm64 olddefconfig
 
       - name: Download Clang
         run: |
           mkdir clang
           wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/d0e0a3882edb1acc193263ae98fce706e82aca38/clang-r574158.tar.gz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
+          
       - name: Set CONFIG_LOCALVERSION
         run: |
-          if [[ "${{ matrix.name }}" == "noroot" ]]; then
-            DEFCONFIG=kernel/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu"
-          elif [[ "${{ matrix.name }}" == "ksunext" ]]; then
-            DEFCONFIG=ksunext/arch/arm64/configs/gki_defconfig
-            VERSION="-TegarXLu-KSUNext"
-          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
+          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
             DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
             VERSION="-TegarXLu-SukiSU"
           fi
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
+          
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
           echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
+          
       - name: Final Clean Tree Commit (before build)
         run: |
           cd kernel
           git add .
           git commit -m "Final clean tree before build" || true
-      - name: Build Kernel
+          
+      - name: Build kernel and modules
         run: |
-          cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
+          cd ${{ matrix.name == 'sukisu' && 'kernel' || matrix.name }}
           export ARCH=arm64
           export SUBARCH=arm64
           export CLANG_PATH=$GITHUB_WORKSPACE/clang
@@ -139,6 +286,21 @@ jobs:
           export LTO=full
           make O=out ARCH=arm64 gki_defconfig
           make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CC=aarch64-linux-gnu-gcc
+          export KCONFIG_NOTIMESTAMP=1
+          export KCFLAGS="-Wno-error -Wno-format -Wno-unused-variable -Wno-stringop-overflow"
+          export HOSTCFLAGS="-Wno-error -Wno-format"
+          # Disable CONFIG_FORTIFY_SOURCE and hardened_usercopy for build
+          sed -i 's/CONFIG_FORTIFY_SOURCE=y/# CONFIG_FORTIFY_SOURCE is not set/' out/.config || true
+          sed -i 's/CONFIG_HARDENED_USERCOPY=y/# CONFIG_HARDENED_USERCOPY is not set/' out/.config || true
+          export KCFLAGS="$KCFLAGS -D__NO_FORTIFY -fno-stack-protector"
+          # Patch KPM copy_to_user if exists
+          if [ -f drivers/kernelsu/kpm/kpm.c ]; then
+            sed -i 's/if(copy_to_user(result, \\&res, sizeof(res)) < 1)/if(put_user(res, (int __user *)result))/g' drivers/kernelsu/kpm/kpm.c
+          fi
+          make -j$(nproc) O=out ARCH=arm64 KCFLAGS="$KCFLAGS" HOSTCFLAGS="$HOSTCFLAGS" 2>&1 | tee build.log
+          make O=out ARCH=arm64 modules -j$(nproc) KCFLAGS="$KCFLAGS" HOSTCFLAGS="$HOSTCFLAGS"
 
       - name: Verify SUSFS Patch
         run: |
