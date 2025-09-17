@@ -99,7 +99,7 @@ jobs:
           wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/d0e0a3882edb1acc193263ae98fce706e82aca38/clang-r574158.tar.gz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
           
-      - name: Set CONFIG_LOCALVERSION
+         - name: Set CONFIG_LOCALVERSION
         run: |
           if [[ "${{ matrix.name }}" == "sukisu" ]]; then
             DEFCONFIG=sukisu/arch/arm64/configs/gki_defconfig
@@ -107,20 +107,17 @@ jobs:
           fi
           sed -i '/CONFIG_LOCALVERSION/d' $DEFCONFIG
           echo "CONFIG_LOCALVERSION=\"$VERSION\"" >> $DEFCONFIG
-          
       - name: Append CONFIG_HZ_300 and CONFIG_HZ=300 to defconfig
         run: |
           echo -e '\nCONFIG_HZ_300=y\nCONFIG_HZ=300' >> kernel/arch/arm64/configs/gki_defconfig
-          
       - name: Final Clean Tree Commit (before build)
         run: |
           cd kernel
           git add .
           git commit -m "Final clean tree before build" || true
-          
-      - name: Build kernel and modules
+      - name: Build Kernel
         run: |
-          cd ${{ matrix.name == 'sukisu' && 'kernel' || matrix.name }}
+          cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
           export ARCH=arm64
           export SUBARCH=arm64
           export CLANG_PATH=$GITHUB_WORKSPACE/clang
@@ -143,21 +140,6 @@ jobs:
           export LTO=full
           make O=out ARCH=arm64 gki_defconfig
           make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CC=aarch64-linux-gnu-gcc
-          export KCONFIG_NOTIMESTAMP=1
-          export KCFLAGS="-Wno-error -Wno-format -Wno-unused-variable -Wno-stringop-overflow"
-          export HOSTCFLAGS="-Wno-error -Wno-format"
-          # Disable CONFIG_FORTIFY_SOURCE and hardened_usercopy for build
-          sed -i 's/CONFIG_FORTIFY_SOURCE=y/# CONFIG_FORTIFY_SOURCE is not set/' out/.config || true
-          sed -i 's/CONFIG_HARDENED_USERCOPY=y/# CONFIG_HARDENED_USERCOPY is not set/' out/.config || true
-          export KCFLAGS="$KCFLAGS -D__NO_FORTIFY -fno-stack-protector"
-          # Patch KPM copy_to_user if exists
-          if [ -f drivers/kernelsu/kpm/kpm.c ]; then
-            sed -i 's/if(copy_to_user(result, \\&res, sizeof(res)) < 1)/if(put_user(res, (int __user *)result))/g' drivers/kernelsu/kpm/kpm.c
-          fi
-          make -j$(nproc) O=out ARCH=arm64 KCFLAGS="$KCFLAGS" HOSTCFLAGS="$HOSTCFLAGS" 2>&1 | tee build.log
-          make O=out ARCH=arm64 modules -j$(nproc) KCFLAGS="$KCFLAGS" HOSTCFLAGS="$HOSTCFLAGS"
 
       - name: Verify SUSFS Patch
         run: |
