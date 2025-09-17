@@ -71,7 +71,7 @@ jobs:
       
       - name: Apply SukiSU Patch
         run: |
-          cd gki/common
+          cd kernel
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
           git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android12-5.10 sus
@@ -84,7 +84,7 @@ jobs:
 
       - name: Fix KernelSU and sus directory state
         run: |
-          cd gki/common
+          cd kernel
           rm -rf KernelSU/.git || true
           rm -rf sus/.git || true
           git rm --cached KernelSU || true
