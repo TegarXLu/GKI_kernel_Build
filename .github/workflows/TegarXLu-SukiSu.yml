@@ -120,7 +120,7 @@ jobs:
      
       - name: Build Kernel
         run: |
-          cd ${{ matrix.name == 'noroot' && 'kernel' || matrix.name }}
+          cd ${{ matrix.name == 'sukisu' && 'kernel' || matrix.name }}
           export ARCH=arm64
           export SUBARCH=arm64
           export CLANG_PATH=$GITHUB_WORKSPACE/clang
