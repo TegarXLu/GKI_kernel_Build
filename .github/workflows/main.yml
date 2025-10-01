@@ -104,7 +104,7 @@ jobs:
       - name: Download Clang
         run: |
           mkdir clang
-          wget https://github.com/liliumproject/clang/releases/download/20250912/lilium_clang-20250912.tar.gz -O clang.tar.gz
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.2/clang+llvm-21.1.2-x86_64-pc-windows-msvc.tar.xz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
       - name: Set CONFIG_LOCALVERSION
         run: |
