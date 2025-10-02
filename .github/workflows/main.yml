@@ -98,14 +98,11 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             cd sukisu
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           fi
       - name: inject SUSFS
         run: |
           if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            # Kernel-side
-            log "Applying kernel-side susfs patches"
             git clone --depth=1 -q -b gki-android12-5.10 https://gitlab.com/simonpunk/susfs4ksu $workdir/susfs
             SUSFS_PATCHES=$workdir/susfs/kernel_patches
             cp -R $SUSFS_PATCHES/fs/* ./fs
