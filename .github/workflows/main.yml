@@ -100,17 +100,6 @@ jobs:
             cd sukisu
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           fi
-      - name: inject SUSFS
-        run: |
-          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            git clone --depth=1 -q -b gki-android12-5.10 https://gitlab.com/simonpunk/susfs4ksu $workdir/susfs
-            SUSFS_PATCHES=$workdir/susfs/kernel_patches
-            cp -R $SUSFS_PATCHES/fs/* ./fs
-            cp -R $SUSFS_PATCHES/include/* ./include
-            patch -p1 < $SUSFS_PATCHES/50_add_susfs_in_gki-android12-5.10.patch
-            SUSFS_VERSION=$(grep -E '^#define SUSFS_VERSION' ./include/linux/susfs.h | cut -d' ' -f3 | sed 's/"//g')
-            config --enable CONFIG_KSU_SUSFS
-          fi
       
       - name: Enable KPM Supports for SukiSU
         run: |
