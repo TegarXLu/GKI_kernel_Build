@@ -114,26 +114,12 @@ jobs:
             SUSFS_VERSION=$(grep -E '^#define SUSFS_VERSION' ./include/linux/susfs.h | cut -d' ' -f3 | sed 's/"//g')
             config --enable CONFIG_KSU_SUSFS
           fi
-            
-       - name: KSU Manual Hooks
-         run: |
-          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-             # Apply manual hook patch based on KSU variant
-          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
-             log "Applying manual hook patch for SukiSU (syscall_hooks.patch)"
-             patch -p1 < $workdir/kernel-patches/syscall_hooks.patch
-          fi
-          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            config --enable CONFIG_KSU_MANUAL_HOOK
-            config --disable CONFIG_KSU_KPROBES_HOOK
-            config --disable CONFIG_KSU_SUSFS_SUS_SU # Conflicts with manual hook
-          fi
-
+      
       - name: Enable KPM Supports for SukiSU
         run: |
-           if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-              config --enable CONFIG_KPM
-           fi
+          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
+            config --enable CONFIG_KPM
+          fi
            
       - name: Download Clang
         run: |
