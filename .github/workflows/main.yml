@@ -74,7 +74,7 @@ jobs:
             flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip
       - name: Create Swap
         run: |
-          sudo fallocate -l 15G /swapfile
+          sudo fallocate -l 20G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
@@ -103,8 +103,8 @@ jobs:
       - name: Download Clang
         run: |
           mkdir clang
-          wget https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250928-release/Clang-22.0.0git-20250928.tar.gz -O clang.tar.gz
-          tar -xf clang.tar.gz -C clang
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.2/LLVM-21.1.2-Linux-X64.tar.xz -O clang.tar.xz
+          tar -xf clang.tar.xz -C clang
            
       - name: Set CONFIG_LOCALVERSION
         run: |
