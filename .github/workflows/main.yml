@@ -94,24 +94,17 @@ jobs:
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
-            curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s main
             curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             cd sukisu
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           fi
       
-      - name: Enable KPM Supports for SukiSU
-        run: |
-          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
-            config --enable CONFIG_KPM
-          fi
-           
       - name: Download Clang
         run: |
           mkdir clang
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.2/clang+llvm-21.1.2-x86_64-pc-windows-msvc.tar.xz -O clang.tar.gz
-          tar -xf clang.tar.gz -C clang
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.2/LLVM-21.1.2-Linux-ARM64.tar.xz -O clang.tar.xz
+          tar -xf clang.tar.xz -C clang
            
       - name: Set CONFIG_LOCALVERSION
         run: |
