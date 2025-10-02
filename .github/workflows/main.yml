@@ -103,8 +103,8 @@ jobs:
       - name: Download Clang
         run: |
           mkdir clang
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.2/LLVM-21.1.2-Linux-X64.tar.xz -O clang.tar.xz
-          tar -xf clang.tar.xz -C clang
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz -O clang.tar.gz
+          tar -xf clang.tar.gz -C clang
            
       - name: Set CONFIG_LOCALVERSION
         run: |
