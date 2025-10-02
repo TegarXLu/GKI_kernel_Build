@@ -109,7 +109,7 @@ jobs:
           
       - name: inject SUSFS
         run: |
-          if susfs_included; then
+          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
             # Kernel-side
             log "Applying kernel-side susfs patches"
             git clone --depth=1 -q -b gki-android12-5.10 https://gitlab.com/simonpunk/susfs4ksu $workdir/susfs
