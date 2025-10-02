@@ -6,11 +6,11 @@ on:
       KERNEL_REPO:
         description: 'Link repo kernel'
         required: true
-        default: 'https://github.com/TegarXLu/Templar-Kernel-GKI-5.10'
+        default: 'https://github.com/marble-indonesia/kernel_xiaomi_sm8450'
       KERNEL_BRANCH:
         description: 'Branch kernel'
         required: true
-        default: 'main'
+        default: 'update-kernel'
       BUILD_NOROOT:
         description: 'Build Noroot variant'
         type: boolean
