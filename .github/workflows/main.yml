@@ -119,22 +119,17 @@ jobs:
             patch -p1 < $SUSFS_PATCHES/50_add_susfs_in_gki-android12-5.10.patch
             SUSFS_VERSION=$(grep -E '^#define SUSFS_VERSION' ./include/linux/susfs.h | cut -d' ' -f3 | sed 's/"//g')
             config --enable CONFIG_KSU_SUSFS
-          else
-            config --disable CONFIG_KSU_SUSFS
           fi
-
+            
        - name: KSU Manual Hooks
          run: |
-          if ksu_manual_hook; then
+          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
              # Apply manual hook patch based on KSU variant
-          if [[ $KSU == "Suki" ]]; then
+          elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
              log "Applying manual hook patch for SukiSU (syscall_hooks.patch)"
              patch -p1 < $workdir/kernel-patches/syscall_hooks.patch
-          else
-              log "Applying manual hook patch for KernelSU (manual-hook.patch)"
-              patch -p1 < $workdir/kernel-patches/manual-hook.patch
           fi
-
+          if [[ "${{ matrix.name }}" == "sukisu" ]]; then
             config --enable CONFIG_KSU_MANUAL_HOOK
             config --disable CONFIG_KSU_KPROBES_HOOK
             config --disable CONFIG_KSU_SUSFS_SUS_SU # Conflicts with manual hook
@@ -142,7 +137,7 @@ jobs:
 
       - name: Enable KPM Supports for SukiSU
         run: |
-           if [[ $KSU == "sukisu" ]]; then
+           if [[ "${{ matrix.name }}" == "sukisu" ]]; then
               config --enable CONFIG_KPM
            fi
            
