@@ -95,7 +95,7 @@ jobs:
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
             cd ksunext
             curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s main
-            curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s susfs-main
+            curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next-susfs
           elif [[ "${{ matrix.name }}" == "sukisu" ]]; then
             cd sukisu
             curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
@@ -106,6 +106,7 @@ jobs:
           mkdir clang
           wget https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.2/clang+llvm-21.1.2-x86_64-pc-windows-msvc.tar.xz -O clang.tar.gz
           tar -xf clang.tar.gz -C clang
+          
       - name: inject SUSFS
         run: |
           if susfs_included; then
@@ -144,6 +145,7 @@ jobs:
            if [[ $KSU == "sukisu" ]]; then
               config --enable CONFIG_KPM
            fi
+           
       - name: Set CONFIG_LOCALVERSION
         run: |
           if [[ "${{ matrix.name }}" == "noroot" ]]; then
