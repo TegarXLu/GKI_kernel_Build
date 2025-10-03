@@ -110,15 +110,15 @@ jobs:
           # Copy SUSFS patches
           cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch ./common/
 
-          cd common
+          cd kernel
           patch -p1 --forward < 50_add_susfs_in_gki-android12-5.10.patch
           cd ..
 
-          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          cp ../susfs4ksu/kernel_patches/fs/* ./kernel/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./kernel/include/linux/
             
-          echo "Applying SUSFS patches for KernelSU Next..."
-          cd ./KernelSU-Next
+          echo "Applying SUSFS patches for ksunext..."
+          cd ./ksunext
 
           cp ../../susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./
           patch -p1 --forward < 10_enable_susfs_for_ksu.patch || true
