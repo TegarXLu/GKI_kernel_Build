@@ -106,7 +106,7 @@ jobs:
 
       - name: Apply ptrace patch for 5.10 kernel
         run: |
-          cd "kern"
+          cd "kernel"
           echo "Patching ptrace!"
           patch -p1 -F 3 < "../../kernel_patches/gki_ptrace.patch"
           
