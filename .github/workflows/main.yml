@@ -74,7 +74,7 @@ jobs:
             flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip
       - name: Create Swap
         run: |
-          sudo fallocate -l 10G /swapfile
+          sudo fallocate -l 20G /swapfile
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
