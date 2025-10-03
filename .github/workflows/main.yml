@@ -78,6 +78,23 @@ jobs:
           sudo chmod 600 /swapfile
           sudo mkswap /swapfile
           sudo swapon /swapfile
+
+      - name: Install ccache
+        run: sudo apt update && sudo apt install -y ccache
+
+      - name: Set up ccache
+        run: |
+          mkdir -p ~/.cache/bazel
+          ccache --version
+          ccache --max-size=2G
+          ccache --set-config=compression=true
+          echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+
+      - name: Clone AnyKernel3 and Other Dependencies
+        run: |
+          echo "Cloning other dependencies..."
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android12-5.10
+          git clone https://github.com/WildPlusKernel/kernel_patches.git
           
       - name: Clone Kernel Source
         run: |
@@ -90,6 +107,13 @@ jobs:
           git config user.email "dimasnasution776@gmail.com"
           git branch -f temp-${{ matrix.name }} ${{ github.event.inputs.KERNEL_BRANCH }}
           git worktree add ../${{ matrix.name }} temp-${{ matrix.name }}
+
+      - name: Apply ptrace patch for 5.10 kernel
+        run: |
+          cd "$CONFIG/common"
+          echo "Patching ptrace!"
+          patch -p1 -F 3 < "../../kernel_patches/gki_ptrace.patch"
+          
       - name: Inject Variant Patch (KSU/SukiSU)
         run: |
           if [[ "${{ matrix.name }}" == "ksunext" ]]; then
