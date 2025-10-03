@@ -122,7 +122,7 @@ jobs:
           echo "Applying SUSFS patches..."
           
           # Copy SUSFS patches
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch ./common/
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android12-5.10.patch ./kernel/
 
           cd kernel
           patch -p1 --forward < 50_add_susfs_in_gki-android12-5.10.patch
