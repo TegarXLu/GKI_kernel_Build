@@ -72,16 +72,6 @@ jobs:
           sudo apt update
           sudo apt install -y git wget curl build-essential bc bison \
             flex libssl-dev libncurses-dev libelf-dev ccache python3 unzip
-      - name: Create Swap
-        run: |
-          sudo fallocate -l 20G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-
-      - name: Install ccache
-        run: sudo apt update && sudo apt install -y ccache
-
       - name: Set up ccache
         run: |
           mkdir -p ~/.cache/bazel
@@ -89,6 +79,12 @@ jobs:
           ccache --max-size=2G
           ccache --set-config=compression=true
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
+      - name: Create Swap
+        run: |
+          sudo fallocate -l 20G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
 
       - name: Clone AnyKernel3 and Other Dependencies
         run: |
