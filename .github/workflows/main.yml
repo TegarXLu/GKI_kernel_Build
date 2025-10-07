@@ -279,15 +279,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup swap (always)
-    if: always()
-    run: |
-      set -euo pipefail
-      if [ -f /swapfile ]; then
-        echo "Turning off swap and removing /swapfile"
-        sudo swapoff /swapfile || true
-        sudo rm -f /swapfile || true
-      else
-        echo "No /swapfile found"
-      fi
-      df -h || true
-      free -h || true
+        if: always()
+        run: |
+          set -euo pipefail
+          if [ -f /swapfile ]; then
+            echo "Turning off swap and removing /swapfile"
+            sudo swapoff /swapfile || true
+            sudo rm -f /swapfile || true
+          else
+            echo "No /swapfile found"
+          fi
+          df -h || true
+          free -h || true
