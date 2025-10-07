@@ -83,56 +83,56 @@ jobs:
         
       uses: actions/checkout@v4
 
-  - name: Create maximum safe swap on device
-    id: create_max_swap
-    run: |
-      set -euo pipefail
+      - name: Create maximum safe swap on device
+        id: create_max_swap
+        run: |
+          set -euo pipefail
 
-      MIN_FREE_GB=${{ env.MIN_FREE_GB }}
-      MIN_SWAP_GB=${{ env.MIN_SWAP_GB }}
-      MAX_CAP=${{ env.MAX_SWAP_CAP_GB }}
+          MIN_FREE_GB=${{ env.MIN_FREE_GB }}
+          MIN_SWAP_GB=${{ env.MIN_SWAP_GB }}
+          MAX_CAP=${{ env.MAX_SWAP_CAP_GB }}
 
-      # Available space on filesystem (GB, integer)
-      AVAIL_GB=$(df --output=avail -BG . | tail -1 | tr -dc '0-9')
-      echo "Available GB: ${AVAIL_GB}G"
+          # Available space on filesystem (GB, integer)
+          AVAIL_GB=$(df --output=avail -BG . | tail -1 | tr -dc '0-9')
+          echo "Available GB: ${AVAIL_GB}G"
 
-      # compute desired swap (available minus margin)
-      DESIRED=$((AVAIL_GB - MIN_FREE_GB))
-      if [ "${MAX_CAP:-0}" -gt 0 ] && [ "$DESIRED" -gt "$MAX_CAP" ]; then
-        DESIRED=$MAX_CAP
-      fi
+          # compute desired swap (available minus margin)
+          DESIRED=$((AVAIL_GB - MIN_FREE_GB))
+          if [ "${MAX_CAP:-0}" -gt 0 ] && [ "$DESIRED" -gt "$MAX_CAP" ]; then
+            DESIRED=$MAX_CAP
+          fi
 
-      if [ "$DESIRED" -lt "$MIN_SWAP_GB" ]; then
-        echo "Not enough space to create swap. Desired=${DESIRED}G < MIN_SWAP_GB=${MIN_SWAP_GB}G"
-        echo "swap_created=false" >> $GITHUB_OUTPUT
-        exit 1
-      fi
+          if [ "$DESIRED" -lt "$MIN_SWAP_GB" ]; then
+            echo "Not enough space to create swap. Desired=${DESIRED}G < MIN_SWAP_GB=${MIN_SWAP_GB}G"
+            echo "swap_created=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
 
-      echo "Creating swap of ${DESIRED}G (available ${AVAIL_GB}G, keeping ${MIN_FREE_GB}G free)..."
-      SWAPFILE=/swapfile
+           echo "Creating swap of ${DESIRED}G (available ${AVAIL_GB}G, keeping ${MIN_FREE_GB}G free)..."
+           SWAPFILE=/swapfile
 
-      # try fallocate first
-      if sudo fallocate -l ${DESIRED}G "$SWAPFILE"; then
-        echo "fallocate success"
-      else
-        echo "fallocate failed — trying dd fallback"
-        # dd fallback (slower)
-        sudo dd if=/dev/zero of="$SWAPFILE" bs=1M count=$((DESIRED * 1024)) status=progress
-      fi
+          # try fallocate first
+          if sudo fallocate -l ${DESIRED}G "$SWAPFILE"; then
+            echo "fallocate success"
+          else
+            echo "fallocate failed — trying dd fallback"
+            # dd fallback (slower)
+            sudo dd if=/dev/zero of="$SWAPFILE" bs=1M count=$((DESIRED * 1024)) status=progress
+          fi
 
-      sudo chmod 600 "$SWAPFILE"
-      sudo mkswap "$SWAPFILE"
-      sudo swapon "$SWAPFILE"
+          sudo chmod 600 "$SWAPFILE"
+          sudo mkswap "$SWAPFILE"
+          sudo swapon "$SWAPFILE"
 
-      echo "swap_created=true" >> $GITHUB_OUTPUT
-      echo "swap_size_gb=${DESIRED}" >> $GITHUB_OUTPUT
+          echo "swap_created=true" >> $GITHUB_OUTPUT
+          echo "swap_size_gb=${DESIRED}" >> $GITHUB_OUTPUT
 
-      swapon --show || true
-      free -h || true
+          swapon --show || true
+          free -h || true
 
-  - name: Show disk (after swap)
-    if: steps.create_max_swap.outcome == 'success'
-    run: df -h
+      - name: Show disk (after swap)
+        if: steps.create_max_swap.outcome == 'success'
+        run: df -h
 
 
       - name: Clone Kernel Source
