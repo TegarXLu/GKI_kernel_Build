@@ -79,9 +79,6 @@ jobs:
           ccache --max-size=2G
           ccache --set-config=compression=true
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
-      - name: Checkout
-        
-      uses: actions/checkout@v4
 
       - name: Create maximum safe swap on device
         id: create_max_swap
