@@ -80,7 +80,7 @@ jobs:
           ccache --set-config=compression=true
           echo "CCACHE_DIR=$HOME/.ccache" >> $GITHUB_ENV
 
-        - name: Create maximum-safe swap on device
+      - name: Create maximum-safe swap on device
         id: create_max_safe_swap
         run: |
           set -euo pipefail
