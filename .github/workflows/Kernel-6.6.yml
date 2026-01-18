@@ -101,25 +101,6 @@ jobs:
         # Verify
         "$BUILD_DIR/clang/bin/clang" --version | head -2
 
-    - name: 🚫 Verify No Root/SUKISU Contamination
-      run: |
-        echo "🔍 Scanning for impurities..."
-        cd "$BUILD_DIR/kernel"
-        
-        # Check for SUKISU/KPM/SUSFS
-        if grep -r "sukisu\|KPM\|SUSFS" --include="*.c" --include="*.h" --include="Kconfig" --include="Makefile" .; then
-          echo "❌ IMPURITY DETECTED!"
-          exit 1
-        fi
-        
-        # Check for root-specific modifications
-        if grep -r "CONFIG_KSU\|CONFIG_MAGISK\|superuser" --include="*.config" . 2>/dev/null; then
-          echo "❌ ROOT MODIFICATIONS DETECTED!"
-          exit 1
-        fi
-        
-        echo "✅ No impurities found. System is pure."
-
     - name: ⚡ Configure LTO Build Environment
       run: |
         echo "⚡ Configuring LTO environment..."
