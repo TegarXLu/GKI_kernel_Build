@@ -55,7 +55,7 @@ env:
 jobs:
   build-kernel:
     name: 🛠️ Build Kernel with SUKISU Patches
-    runs-on: ubuntu-24.04-arm64  # ARM64 runner for native compilation
+    runs-on: ubuntu-24.04  # ARM64 runner for native compilation
     timeout-minutes: 120
 
     steps:
