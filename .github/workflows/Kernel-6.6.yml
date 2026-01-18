@@ -90,51 +90,7 @@ jobs:
           echo "❌ Clang not found!"
           exit 1
         fi
-
-    - name: 🔪 Clone & Apply SUKISU KPM (Latest)
-      if: ${{ inputs.use_custom_patches }}
-      run: |
-        echo "⚗️ Applying SUKISU Kernel Patch Manager..."
-        KPM_DIR="$BUILD_DIR/patches/kpm"
-        mkdir -p "$KPM_DIR"
-        git clone --depth=1 --branch="$KPM_BRANCH" "$KPM_REPO" "$KPM_DIR"
         
-        cd "$BUILD_DIR/kernel"
-        
-        # Find and apply KPM patches
-        find "$KPM_DIR/patches" -name "*.patch" -type f | sort | while read patch; do
-          echo "🧩 Applying KPM patch: $(basename $patch)"
-          patch -p1 --no-backup-if-mismatch < "$patch" || \
-          echo "⚠️  Patch might have been applied already or failed: $(basename $patch)"
-        done
-        
-        # Check for KPM configs
-        if [ -d "$KPM_DIR/configs" ]; then
-          cp -r "$KPM_DIR/configs"/* "$BUILD_DIR/kernel/" 2>/dev/null || true
-        fi
-
-    - name: 🛡️ Clone & Apply SUKISU SUSFS (Latest)
-      if: ${{ inputs.use_custom_patches }}
-      run: |
-        echo "🛡️ Applying SUKISU SUSFS (Secure Userland Filesystem)..."
-        SUSFS_DIR="$BUILD_DIR/patches/susfs"
-        mkdir -p "$SUSFS_DIR"
-        git clone --depth=1 --branch="$SUSFS_BRANCH" "$SUSFS_REPO" "$SUSFS_DIR"
-        
-        cd "$BUILD_DIR/kernel"
-        
-        # SUSFS integration
-        if [ -f "$SUSFS_DIR/susfs-kernel.patch" ]; then
-          echo "🔒 Applying SUSFS kernel patch..."
-          patch -p1 --no-backup-if-mismatch < "$SUSFS_DIR/susfs-kernel.patch"
-        fi
-        
-        # Copy SUSFS sources if directory structure exists
-        if [ -d "$SUSFS_DIR/kernel" ]; then
-          echo "📁 Integrating SUSFS kernel module..."
-          cp -r "$SUSFS_DIR/kernel"/* "$BUILD_DIR/kernel/" 2>/dev/null || true
-        fi
-
     - name: 🧪 Apply Custom Patches (User Defined)
       if: ${{ inputs.use_custom_patches }}
       run: |
