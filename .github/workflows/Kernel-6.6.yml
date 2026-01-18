@@ -1,190 +1,247 @@
-name: 🧠 Kernel Builder - SUKISU KPM + SUSFS
+name: 🧠 Pure Kernel Builder - LTO Optimized
 
 on:
   workflow_dispatch:
     inputs:
-      kernel_version:
-        description: 'Kernel version tag'
+      lto_level:
+        description: 'LTO Optimization Level'
         required: true
-        default: 'wakacaw-1.0'
-      use_custom_patches:
-        description: 'Apply custom patches'
-        type: boolean
-        default: true
-      build_type:
-        description: 'Build type'
-        required: true
-        default: 'GKI'
+        default: 'full'
         type: choice
         options:
-          - GKI
-          - PERMISSIVE
-          - ENG
-      target_device:
-        description: 'Target device'
+          - 'thin'
+          - 'full'
+          - 'fat'
+      optimization:
+        description: 'Optimization Profile'
         required: true
-        default: 'onyx'
+        default: 'performance'
+        type: choice
+        options:
+          - 'performance'
+          - 'balanced'
+          - 'size'
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     paths:
-      - '**.patch'
-      - '**.diff'
-      - 'config/**'
-      - 'scripts/**'
+      - 'kernel-configs/**'
+      - 'Makefile'
+      - 'Kconfig'
   schedule:
-    - cron: '0 0 * * 0'  # Weekly builds
+    - cron: '0 0 * * 0'  # Weekly purity checks
 
 env:
   KERNEL_REPO: 'https://github.com/TegarXLu/kernel_xiaomi_onyx-gki.git'
   KERNEL_BRANCH: 'wakacaw-1.0'
   CLANG_URL: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.0-rc1/LLVM-22.1.0-rc1-Linux-ARM64.tar.xz'
   
-  # SUKISU PATCHES - LATEST VERSIONS
-  KPM_REPO: 'https://github.com/sukisu/KernelPatchManager.git'
-  KPM_BRANCH: 'main'
-  SUSFS_REPO: 'https://github.com/sukisu/susfs.git'
-  SUSFS_BRANCH: 'main'
+  # GODMODE LTO FLAGS
+  LTO_LEVEL: 'full'
+  OPTIMIZATION: 'performance'
   
-  # BUILD CONFIG
+  # PURIST CONFIGURATION
   ARCH: 'arm64'
-  DEFCONFIG: 'onyx_defconfig'
-  JOBS: 8
+  DEFCONFIG: 'onyx_gki_defconfig'
   BUILD_DIR: '${{ github.workspace }}/kernel_build'
-  ARTIFACT_NAME: 'kernel-onyx-${{ github.run_number }}-${{ github.sha }}'
+  ARTIFACT_NAME: 'pure-kernel-${{ github.sha }}-${{ github.run_number }}'
+
+  # EXPLICITLY DISABLED
+  NO_SUKISU: '1'
+  NO_KPM: '1'
+  NO_SUSFS: '1'
+  NO_ROOT_MODS: '1'
 
 jobs:
-  build-kernel:
-    name: 🛠️ Build Kernel with SUKISU Patches
-    runs-on: ubuntu-24.04  # ARM64 runner for native compilation
-    timeout-minutes: 120
+  build-pure-kernel:
+    name: ⚡ Build Pure Kernel (LTO Optimized)
+    runs-on: ubuntu-24.04-arm64
+    timeout-minutes: 90
 
     steps:
-    - name: 🔮 Checkout - GODMODE INITIATED
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        fetch-depth: 0
-
-    - name: 🌀 Clone Kernel Source
+    - name: 🧹 Clean Workspace - Purge Impurities
       run: |
-        echo "⬇️ Cloning kernel source..."
-        git clone --depth=1 --branch="$KERNEL_BRANCH" "$KERNEL_REPO" "$BUILD_DIR/kernel"
+        echo "🔥 Purging all non-essential elements..."
+        rm -rf ${{ github.workspace }}/kernel_build 2>/dev/null || true
+        echo "✅ Workspace purified"
+
+    - name: 📥 Clone Kernel Source (Vanilla)
+      run: |
+        echo "⬇️ Cloning pure kernel source..."
+        git clone --depth=1 \
+          --branch="$KERNEL_BRANCH" \
+          --single-branch \
+          --no-tags \
+          "$KERNEL_REPO" \
+          "$BUILD_DIR/kernel"
+        
         cd "$BUILD_DIR/kernel"
-        echo "✅ Kernel cloned at $(pwd)"
-        git log --oneline -5
+        echo "✅ Kernel cloned: $(git log --oneline -1)"
+        echo "📏 Repository size: $(du -sh . | cut -f1)"
 
-    - name: ⚡ Setup LLVM Clang 22.1.0-rc1
+    - name: ⚙️ Setup LLVM Clang 22.1.0-rc1
       run: |
-        echo "🧠 Setting up LLVM Clang 22.1.0-rc1..."
+        echo "🧠 Installing minimal build dependencies..."
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          libncurses-dev \
+          bc \
+          flex \
+          bison \
+          libelf-dev \
+          libssl-dev \
+          rsync
+        
+        echo "⬇️ Downloading Clang 22.1.0-rc1..."
         mkdir -p "$BUILD_DIR/clang"
         wget -q "$CLANG_URL" -O clang.tar.xz
         tar -xf clang.tar.xz -C "$BUILD_DIR/clang" --strip-components=1
         rm clang.tar.xz
         
-        # Verify Clang
-        CLANG_PATH="$BUILD_DIR/clang/bin/clang"
-        if [ -f "$CLANG_PATH" ]; then
-          echo "🎯 Clang version:"
-          "$CLANG_PATH" --version | head -3
-        else
-          echo "❌ Clang not found!"
+        # Verify
+        "$BUILD_DIR/clang/bin/clang" --version | head -2
+
+    - name: 🚫 Verify No Root/SUKISU Contamination
+      run: |
+        echo "🔍 Scanning for impurities..."
+        cd "$BUILD_DIR/kernel"
+        
+        # Check for SUKISU/KPM/SUSFS
+        if grep -r "sukisu\|KPM\|SUSFS" --include="*.c" --include="*.h" --include="Kconfig" --include="Makefile" .; then
+          echo "❌ IMPURITY DETECTED!"
           exit 1
         fi
         
-    - name: 🧪 Apply Custom Patches (User Defined)
-      if: ${{ inputs.use_custom_patches }}
-      run: |
-        echo "🎨 Applying user custom patches..."
-        CUSTOM_PATCH_DIR="${{ github.workspace }}/patches"
-        
-        if [ -d "$CUSTOM_PATCH_DIR" ]; then
-          cd "$BUILD_DIR/kernel"
-          
-          # Apply patches in numerical order
-          find "$CUSTOM_PATCH_DIR" -name "*.patch" -type f | sort -V | while read patch; do
-            echo "🛠️  Applying custom patch: $(basename $patch)"
-            patch -p1 --no-backup-if-mismatch < "$patch" || \
-            { echo "❌ Failed to apply: $(basename $patch)"; exit 1; }
-          done
-        else
-          echo "📭 No custom patches directory found"
+        # Check for root-specific modifications
+        if grep -r "CONFIG_KSU\|CONFIG_MAGISK\|superuser" --include="*.config" . 2>/dev/null; then
+          echo "❌ ROOT MODIFICATIONS DETECTED!"
+          exit 1
         fi
+        
+        echo "✅ No impurities found. System is pure."
 
-    - name: 🔧 Configure Kernel Build Environment
+    - name: ⚡ Configure LTO Build Environment
       run: |
-        echo "⚙️ Setting up build environment..."
+        echo "⚡ Configuring LTO environment..."
         cd "$BUILD_DIR/kernel"
         
-        # Install dependencies
-        sudo apt-get update
-        sudo apt-get install -y \
-          build-essential \
-          libncurses-dev \
-          bison \
-          flex \
-          libssl-dev \
-          libelf-dev \
-          bc \
-          rsync \
-          kmod \
-          cpio \
-          git
+        # Export LTO configuration
+        case "${{ github.event.inputs.lto_level || 'full' }}" in
+          'thin')
+            export LTO_MODE='thin'
+            export LTO_CFLAGS='-flto=thin -fuse-ld=lld'
+            ;;
+          'full')
+            export LTO_MODE='full'
+            export LTO_CFLAGS='-flto -fuse-ld=lld'
+            ;;
+          'fat')
+            export LTO_MODE='fat'
+            export LTO_CFLAGS='-flto -fuse-ld=lld -ffat-lto-objects'
+            ;;
+        esac
         
-        # Export environment variables
-        echo "ARCH=$ARCH" >> $GITHUB_ENV
-        echo "CROSS_COMPILE=aarch64-linux-gnu-" >> $GITHUB_ENV
-        echo "CROSS_COMPILE_ARM32=arm-linux-gnueabi-" >> $GITHUB_ENV
+        # Optimization profile
+        case "${{ github.event.inputs.optimization || 'performance' }}" in
+          'performance')
+            export OPT_CFLAGS='-O3 -march=armv8.5-a+crypto+rcpc+dotprod -mcpu=cortex-a715 -mtune=cortex-a715'
+            ;;
+          'balanced')
+            export OPT_CFLAGS='-O2 -march=armv8.4-a+crypto -mcpu=cortex-a75 -mtune=cortex-a75'
+            ;;
+          'size')
+            export OPT_CFLAGS='-Os -march=armv8-a -mcpu=cortex-a53'
+            ;;
+        esac
+        
+        # Full environment setup
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "SUBARCH=arm64" >> $GITHUB_ENV
         echo "PATH=$BUILD_DIR/clang/bin:$PATH" >> $GITHUB_ENV
-        echo "CLANG_TRIPLE=aarch64-linux-gnu-" >> $GITHUB_ENV
         
-        # LLVM/Clang configuration
+        # LLVM Configuration
         echo "LLVM=1" >> $GITHUB_ENV
         echo "LLVM_IAS=1" >> $GITHUB_ENV
         echo "CC=clang" >> $GITHUB_ENV
         echo "LD=ld.lld" >> $GITHUB_ENV
         echo "AR=llvm-ar" >> $GITHUB_ENV
         echo "NM=llvm-nm" >> $GITHUB_ENV
-        echo "OBJCOPY=llvm-objcopy" >> $GITHUB_ENV
-        echo "OBJDUMP=llvm-objdump" >> $GITHUB_ENV
         echo "STRIP=llvm-strip" >> $GITHUB_ENV
+        echo "OBJCOPY=llvm-objcopy" >> $GITHUB_ENV
+        
+        # LTO Flags
+        echo "LTO_CFLAGS=$LTO_CFLAGS" >> $GITHUB_ENV
+        echo "OPT_CFLAGS=$OPT_CFLAGS" >> $GITHUB_ENV
+        echo "KBUILD_CFLAGS=$OPT_CFLAGS $LTO_CFLAGS" >> $GITHUB_ENV
+        echo "KBUILD_LDFLAGS=$LTO_CFLAGS" >> $GITHUB_ENV
 
-    - name: 🧬 Generate Kernel Configuration
+    - name: 🔧 Configure Kernel with LTO
       run: |
-        echo "🧬 Generating kernel configuration..."
+        echo "🔧 Generating kernel configuration with LTO..."
         cd "$BUILD_DIR/kernel"
         
-        # Create out directory
+        # Create output directory
         mkdir -p out
         
         # Generate base config
-        make O=out ARCH=$ARCH $DEFCONFIG
+        make O=out ARCH=arm64 $DEFCONFIG
         
-        # Interactive menuconfig if needed (for debugging)
-        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          echo "🔧 Configuration generated at out/.config"
-          head -50 out/.config
+        # Enable LTO in config
+        echo "🔄 Enabling LTO in kernel configuration..."
+        ./scripts/config --file out/.config \
+          --enable LTO_CLANG \
+          --enable LTO \
+          --enable LTO_CLANG_FULL \
+          --disable LTO_CLANG_THIN \
+          --enable HAVE_LTO_CLANG_FULL
+        
+        # Disable any root-related options
+        ./scripts/config --file out/.config \
+          --disable KSU \
+          --disable OVERLAY_FS_REDIRECT_DIR \
+          --disable MAGISK_POLICY_FS \
+          --disable NON_ROOT_NS \
+          --disable ROOT_NS
+        
+        # Optimize for size/performance based on selection
+        if [ "${{ github.event.inputs.optimization || 'performance' }}" = "size" ]; then
+          ./scripts/config --file out/.config \
+            --enable CC_OPTIMIZE_FOR_SIZE \
+            --disable CC_OPTIMIZE_FOR_PERFORMANCE
+        else
+          ./scripts/config --file out/.config \
+            --disable CC_OPTIMIZE_FOR_SIZE \
+            --enable CC_OPTIMIZE_FOR_PERFORMANCE
         fi
+        
+        # Update config
+        make O=out ARCH=arm64 olddefconfig
+        
+        echo "📋 LTO Configuration applied:"
+        grep "LTO" out/.config
 
-    - name: 🚀 Build Kernel with SUKISU Modifications
+    - name: ⚡ Build Pure LTO Kernel
       run: |
-        echo "⚡ Building kernel with GODMODE optimizations..."
+        echo "⚡ Building pure LTO-optimized kernel..."
         cd "$BUILD_DIR/kernel"
         
-        # Start build process
         BUILD_START=$(date +%s)
         
-        make -j$JOBS O=out ARCH=$ARCH \
-          CC="$CC" \
-          LD="$LD" \
-          AR="$AR" \
-          NM="$NM" \
-          OBJCOPY="$OBJCOPY" \
-          OBJDUMP="$OBJDUMP" \
-          STRIP="$STRIP" \
-          CROSS_COMPILE="$CROSS_COMPILE" \
-          CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
+        # Build with explicit flags
+        make -j$(nproc) O=out ARCH=arm64 \
+          CC="clang" \
+          LD="ld.lld" \
+          AR="llvm-ar" \
+          NM="llvm-nm" \
+          STRIP="llvm-strip" \
+          OBJCOPY="llvm-objcopy" \
+          OBJDUMP="llvm-objdump" \
+          CROSS_COMPILE="aarch64-linux-gnu-" \
+          CROSS_COMPILE_ARM32="arm-linux-gnueabi-" \
           LLVM=1 \
           LLVM_IAS=1 \
+          KCFLAGS="$KBUILD_CFLAGS" \
+          KLDFLAGS="$KBUILD_LDFLAGS" \
           2>&1 | tee build.log
         
         BUILD_END=$(date +%s)
@@ -192,130 +249,236 @@ jobs:
         
         echo "✅ Build completed in ${BUILD_TIME} seconds"
         
-        # Verify build output
-        if [ -f "out/arch/$ARCH/boot/Image" ]; then
-          echo "🎯 Kernel Image found!"
-          ls -lh "out/arch/$ARCH/boot/"
+        # Verify
+        if [ -f "out/arch/arm64/boot/Image" ]; then
+          SIZE=$(stat -c%s "out/arch/arm64/boot/Image")
+          echo "📦 Kernel Size: $(($SIZE / 1024 / 1024))MB"
         else
-          echo "❌ Kernel Image not found!"
-          cat build.log | tail -100
+          echo "❌ Build failed - no kernel image"
+          tail -100 build.log
           exit 1
         fi
 
-    - name: 📦 Package Kernel Artifacts
+    - name: 📊 Analyze LTO Results
       run: |
-        echo "📦 Packaging kernel artifacts..."
+        echo "📊 LTO Build Analysis Report"
+        echo "============================="
+        cd "$BUILD_DIR/kernel"
+        
+        # Check LTO sections
+        echo "🔍 Checking LTO optimization..."
+        if command -v llvm-size >/dev/null 2>&1; then
+          llvm-size out/vmlinux 2>/dev/null || true
+        fi
+        
+        # Check for LTO sections
+        echo "📈 LTO Statistics:"
+        if [ -f "out/vmlinux" ]; then
+          readelf -S out/vmlinux 2>/dev/null | grep -i lto || echo "No specific LTO sections found"
+        fi
+        
+        # Symbol analysis
+        echo "🏷️  Symbol table size:"
+        nm out/vmlinux 2>/dev/null | wc -l || echo "Cannot count symbols"
+
+    - name: 📦 Package Pure Artifacts
+      run: |
+        echo "📦 Packaging pure kernel artifacts..."
         ARTIFACT_DIR="$BUILD_DIR/artifacts"
         mkdir -p "$ARTIFACT_DIR"
         
         cd "$BUILD_DIR/kernel"
         
-        # Copy essential files
-        cp out/arch/$ARCH/boot/Image "$ARTIFACT_DIR/"
-        cp out/.config "$ARTIFACT_DIR/config"
-        cp System.map "$ARTIFACT_DIR/" 2>/dev/null || true
-        cp out/Module.symvers "$ARTIFACT_DIR/" 2>/dev/null || true
+        # Copy only essential files
+        cp out/arch/arm64/boot/Image "$ARTIFACT_DIR/Image.pure"
+        cp out/.config "$ARTIFACT_DIR/config.pure"
         
-        # Copy modules if any
-        if [ -d "out/modules" ]; then
-          mkdir -p "$ARTIFACT_DIR/modules"
-          find out/modules -name "*.ko" -exec cp {} "$ARTIFACT_DIR/modules/" \;
+        # Generate minimalist info
+        cat > "$ARTIFACT_DIR/pure.info" << EOF
+        PURE KERNEL BUILD
+        =================
+        Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        Commit: ${{ github.sha }}
+        Build ID: ${{ github.run_number }}
+        
+        PURITY STATUS:
+        - SUKISU: ABSENT
+        - KPM: ABSENT
+        - SUSFS: ABSENT
+        - ROOT MODS: ABSENT
+        
+        OPTIMIZATION:
+        - LTO Level: ${{ github.event.inputs.lto_level || 'full' }}
+        - Profile: ${{ github.event.inputs.optimization || 'performance' }}
+        - Clang: 22.1.0-rc1
+        - Architecture: arm64
+        
+        SIZE INFORMATION:
+        - Kernel: $(stat -c%s "out/arch/arm64/boot/Image" | awk '{printf "%.2f MB", $1/1024/1024}')
+        - Config: $(wc -l < out/.config) lines
+        
+        BUILD LOGIC:
+        "Complexity is the enemy of security.
+        Purity is the foundation of stability."
+        EOF
+        
+        # Create verification script
+        cat > "$ARTIFACT_DIR/verify_purity.sh" << 'EOF'
+        #!/bin/bash
+        # Pure Kernel Verification Script
+        
+        echo "🔍 Verifying kernel purity..."
+        
+        if [ ! -f "Image.pure" ]; then
+            echo "❌ Kernel image not found"
+            exit 1
         fi
         
-        # Create build info
-        cat > "$ARTIFACT_DIR/build.info" << EOF
-        Kernel Build Information
-        ========================
-        Build Date: $(date)
-        Git SHA: ${{ github.sha }}
-        Run Number: ${{ github.run_number }}
-        Kernel Version: $(make kernelversion 2>/dev/null || echo "Unknown")
-        SUKISU KPM: $(cd $BUILD_DIR/patches/kpm 2>/dev/null && git rev-parse --short HEAD || echo "Not applied")
-        SUKISU SUSFS: $(cd $BUILD_DIR/patches/susfs 2>/dev/null && git rev-parse --short HEAD || echo "Not applied")
-        Build Type: ${{ inputs.build_type }}
-        Target Device: ${{ inputs.target_device }}
+        # Check for strings that should NOT exist
+        FORBIDDEN_STRINGS=("sukisu" "KPM" "SUSFS" "magisk" "ksu" "rootkit")
+        
+        for forbidden in "${FORBIDDEN_STRINGS[@]}"; do
+            if strings "Image.pure" | grep -i "$forbidden" >/dev/null; then
+                echo "❌ IMPURITY DETECTED: $forbidden"
+                exit 1
+            fi
+        done
+        
+        echo "✅ Kernel is pure. No contaminants detected."
         EOF
         
-        # Create flashable package (AnyKernel3 style)
-        mkdir -p "$ARTIFACT_DIR/anykernel"
-        cat > "$ARTIFACT_DIR/anykernel/anykernel.sh" << 'EOF'
+        chmod +x "$ARTIFACT_DIR/verify_purity.sh"
+        
+        # Create flashable package (minimalist)
+        mkdir -p "$ARTIFACT_DIR/flash"
+        cat > "$ARTIFACT_DIR/flash/flash.sh" << 'EOF'
         #!/system/bin/sh
-        # AnyKernel3 Script for SUKISU Patched Kernel
         
-        ## AnyKernel setup
-        begin
+        # Minimalist flash script
+        # No bloat, no root, no modifications
         
-        ## AnyKernel permissions
-        set_permissions
+        ui_print " "
+        ui_print "================================"
+        ui_print "   PURE KERNEL FLASH"
+        ui_print "   No root, no bloat, no nonsense"
+        ui_print "================================"
         
-        ## AnyKernel kernel install
-        dump_boot
+        # Backup original kernel
+        dd if=/dev/block/by-name/boot of=/tmp/boot_backup.img
         
-        patch_cmdline "SUKISU_KPM" "enabled"
-        patch_cmdline "SUKISU_SUSFS" "enabled"
+        # Flash new kernel
+        dd if=/tmp/Image.pure of=/dev/block/by-name/boot
         
-        write_boot
-        end
-        
-        ## AnyKernel file attributes
-        chmod -R 755 $MODPATH
+        ui_print "✅ Pure kernel flashed successfully"
+        ui_print "⚠️  No root modifications included"
         EOF
         
-        # Create zip archive
+        chmod +x "$ARTIFACT_DIR/flash/flash.sh"
+        
+        # Create final zip
         cd "$ARTIFACT_DIR"
         zip -r9 "$ARTIFACT_NAME.zip" .
 
-    - name: 📤 Upload Artifacts
+    - name: 📤 Upload Pure Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: kernel-build-${{ github.run_number }}
+        name: pure-kernel-${{ github.run_number }}
         path: |
           ${{ env.BUILD_DIR }}/artifacts/
           ${{ env.BUILD_DIR }}/kernel/build.log
-        retention-days: 7
+        retention-days: 30
 
-    - name: 📊 Build Report
+    - name: 📈 Generate Purity Report
       if: always()
       run: |
-        echo "📊 BUILD REPORT" >> $GITHUB_STEP_SUMMARY
-        echo "===============" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Build Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        echo "# PURITY BUILD REPORT" >> $GITHUB_STEP_SUMMARY
+        echo "## 🧪 Build #${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
-        if [ -f "$BUILD_DIR/kernel/out/arch/$ARCH/boot/Image" ]; then
-          IMAGE_SIZE=$(stat -c%s "$BUILD_DIR/kernel/out/arch/$ARCH/boot/Image")
-          echo "**✅ Kernel Build Successful**" >> $GITHUB_STEP_SUMMARY
-          echo "- Kernel Image: $(($IMAGE_SIZE / 1024 / 1024))MB" >> $GITHUB_STEP_SUMMARY
-          echo "- Architecture: $ARCH" >> $GITHUB_STEP_SUMMARY
-          echo "- SUKISU KPM: Applied" >> $GITHUB_STEP_SUMMARY
-          echo "- SUKISU SUSFS: Applied" >> $GITHUB_STEP_SUMMARY
+        if [ -f "$BUILD_DIR/kernel/out/arch/arm64/boot/Image" ]; then
+          echo "✅ **BUILD SUCCESSFUL**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Purity Status:**" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 SUKISU: Not present" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 KPM: Not present" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 SUSFS: Not present" >> $GITHUB_STEP_SUMMARY
+          echo "- 🚫 Root mods: Not present" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          SIZE=$(stat -c%s "$BUILD_DIR/kernel/out/arch/arm64/boot/Image")
+          echo "**Build Info:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Size: $(($SIZE / 1024 / 1024)) MB" >> $GITHUB_STEP_SUMMARY
+          echo "- LTO: ${{ github.event.inputs.lto_level || 'full' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Optimization: ${{ github.event.inputs.optimization || 'performance' }}" >> $GITHUB_STEP_SUMMARY
         else
-          echo "**❌ Kernel Build Failed**" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **BUILD FAILED**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "Check build logs for details" >> $GITHUB_STEP_SUMMARY
         fi
 
-  notify:
-    name: 📢 Notification
-    needs: build-kernel
-    if: always()
+  security-scan:
+    name: 🔒 Security Scan (Purity Check)
+    needs: build-pure-kernel
     runs-on: ubuntu-latest
+    if: success()
     
     steps:
-      - name: 📨 Discord Notification
-        if: ${{ failure() }}
-        uses: sarisia/actions-status-discord@v1
+      - name: ⬇️ Download Artifacts
+        uses: actions/download-artifact@v4
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          title: "🚨 Kernel Build Failed"
-          description: "Build #${{ github.run_number }} failed for ${{ github.repository }}"
-          color: 0xFF0000
+          name: pure-kernel-${{ needs.build-pure-kernel.outputs.run_id }}
           
-      - name: 🎉 Success Notification
-        if: ${{ success() }}
-        uses: sarisia/actions-status-discord@v1
+      - name: 🔍 Run Security Scan
+        run: |
+          echo "🔍 Scanning for impurities..."
+          
+          # Check for forbidden patterns
+          FORBIDDEN_PATTERNS=(
+            "sukisu"
+            "KPM"
+            "SUSFS"
+            "magisk"
+            "kernelsu"
+            "superuser"
+            "rootkit"
+          )
+          
+          echo "Scanning kernel image..."
+          for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+            if strings Image.pure 2>/dev/null | grep -i "$pattern" >/dev/null; then
+              echo "❌ SECURITY VIOLATION: $pattern found in kernel!"
+              exit 1
+            fi
+          done
+          
+          echo "✅ Security scan passed. Kernel is pure."
+
+  release:
+    name: 🚀 Create Release
+    needs: [build-pure-kernel, security-scan]
+    runs-on: ubuntu-latest
+    if: success() && github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: 📝 Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          title: "✅ Kernel Build Successful"
-          description: "Build #${{ github.run_number }} completed successfully!"
-          color: 0x00FF00
+          name: "Pure Kernel ${{ github.sha }}"
+          body: |
+            # 🧹 Pure Kernel Build
+            
+            **No SUKISU, No KPM, No SUSFS, No Root Modifications**
+            
+            Built with full LTO optimization.
+            
+            ## Verification
+            Run `./verify_purity.sh` to confirm no contaminants.
+            
+            ## Flash Instructions
+            See included flash.sh script.
+            
+            **Philosophy:** Complexity breeds vulnerability. Simplicity breeds security.
+          files: |
+            artifacts.zip
+          draft: false
+          prerelease: false
