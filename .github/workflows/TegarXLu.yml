@@ -66,8 +66,8 @@ jobs:
         export PATH=$CLANG_PATH:$PATH
         
         # CUSTOM LLD FOR LTO - USING CURL INSTEAD
-        curl -L -o https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.8/clang+llvm-21.1.8-armv7a-linux-gnueabihf.tar.gz
-        tar -xf clang_llvm.tar.gz
+        curl -L -o https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.0-rc1/LLVM-22.1.0-rc1-Linux-X64.tar.xz
+        tar -xf clang_llvm.tar.xz
         export LLD_PATH=$TOOLCHAIN_DIR/clang+llvm-18.0.0-aarch64-linux-gnu/bin
 
     - name: "🧬 INJECT MODIFICATIONS (CURL EDITION)"
