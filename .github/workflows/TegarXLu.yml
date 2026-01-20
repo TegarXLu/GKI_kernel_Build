@@ -42,7 +42,7 @@ jobs:
           rsync schedtool libelf-dev libdwarf-dev kmod cpio \
           libgmp-dev libmpc-dev libmpfr-dev \
           gawk patchelf file pkg-config libffi-dev libisl-dev \
-          libclang-rt-dev libzstd-dev liblz4-dev libbz2-dev
+          libzstd-dev liblz4-dev libbz2-dev
 
     - name: "📥 CLONE SOURCE"
       run: |
