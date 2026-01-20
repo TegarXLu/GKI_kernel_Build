@@ -46,7 +46,7 @@ jobs:
 
     - name: "📥 CLONE SOURCE"
       run: |
-        git clone https://github.com/TegarXLu/kernel_xiaomi_onyx-gki --depth=1 -b android13-6.6 $KERNEL_DIR
+        git clone https://github.com/TegarXLu/kernel_xiaomi_onyx-gki --depth=1 -b wakacaw-1.0 $KERNEL_DIR
         cd $KERNEL_DIR
         git submodule update --init --recursive
 
