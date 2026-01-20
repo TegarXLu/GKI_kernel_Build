@@ -1,4 +1,4 @@
-name: NEXUS-6.6-A15
+name: NEXUS-6.6-A15-RODIN-BUILDER
 
 on:
   workflow_dispatch:
@@ -40,14 +40,14 @@ jobs:
           libxml2-utils xsltproc unzip fontconfig python3 \
           python3-pip clang llvm lld ninja-build libssl-dev bc \
           rsync schedtool libelf-dev libdwarf-dev kmod cpio \
-          libgmp-dev libmpc-dev libmpfr-dev \
+          libtinfo5 libtinfo5-dev libgmp-dev libmpc-dev libmpfr-dev \
           gawk patchelf file pkg-config libffi-dev libisl-dev \
-          libzstd-dev liblz4-dev libbz2-dev \
+          libclang-rt-dev libzstd-dev liblz4-dev libbz2-dev \
           openssl ca-certificates
 
     - name: "📥 CLONE SOURCE WITH VERIFICATION"
       run: |
-        git clone https://github.com/TegarXLu/kernel_xiaomi_onyx-gki --depth=1 -b wakacaw-1.0 $KERNEL_DIR
+        git clone https://github.com/TegarXLu/kernel_xiaomi_onyx-gki --depth=1 -b android13-6.6 $KERNEL_DIR
         cd $KERNEL_DIR
         git submodule update --init --recursive --depth=1
         
@@ -596,76 +596,4 @@ adb shell dmesg | grep -i "sukisu\|nexus\|susfs"
 ### SUPPORT
 Kernel source: https://github.com/TegarXLu/kernel_xiaomi_onyx-gki
 Build by: NEXUS-GODMODE AUTOMATION
-EOF
-
-    - name: "🚀 RELEASE ULTIMATE BUILD"
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          ${{ github.workspace }}/output/*.zip
-          ${{ github.workspace }}/output/BUILD_SUMMARY.md
-        tag_name: ${{ github.event.inputs.release_tag }}
-        body: |
-          ## 🏆 NEXUS 6.6 A15 - ULTIMATE BUILD
-          
-          ### **ALL ERRORS FIXED | PERFECT COMPILATION**
-          
-          **ISSUES RESOLVED:**
-          1. ✅ **Time command not found** - Installed time package
-          2. ✅ **Patch corruption** - Direct C implementation (no patches)
-          3. ✅ **Directory errors** - All directories pre-created
-          4. ✅ **Makefile issues** - Proper Kconfig/Makefile integration
-          5. ✅ **LLVM22 compatibility** - Optimized flags and config
-          
-          **BUILD DETAILS:**
-          - **Architecture:** ARM64 (AArch64)
-          - **Chipset:** MediaTek Dimensity 8400 Ultra
-          - **Kernel:** Linux 6.6.x with Android 15 BSP
-          - **Compiler:** LLVM/Clang 22.1.0-rc1
-          - **Optimization:** Full LTO, -O3, Polly, Graphite
-          - **Build Time:** ${COMPILE_TIME} seconds
-          
-          **FEATURES:**
-          1. **Sukisu Root v3.1** - KSU+KPM hybrid implementation
-          2. **KPM Engine** - Dynamic kernel patching at runtime
-          3. **SUSFS v2.6** - Secure unkillable stackable filesystem
-          4. **Nexus Gaming v4.2** - LLVM22 optimized gaming engine
-          5. **Full LTO** - Whole program optimization
-          
-          **INSTALLATION:**
-          ```bash
-          # Recovery method (recommended)
-          Flash the zip in TWRP/OrangeFox
-          
-          # Fastboot method
-          fastboot flash boot Image.gz-dtb
-          fastboot reboot
-          ```
-          
-          **VERIFICATION:**
-          ```bash
-          # Check kernel version
-          adb shell uname -a
-          
-          # Verify features
-          adb shell dmesg | grep -i "sukisu\|nexus\|susfs"
-          
-          # Expected output:
-          # Sukisu Root v3.1 loaded
-          # NEXUS GAMING ENGINE v4.2 ACTIVATED
-          # SUSFS v2.6 loaded
-          ```
-          
-          **MD5:** \`$(md5sum ${{ github.workspace }}/output/NEXUS-6.6-A15-RODIN-ULTIMATE.zip | cut -d' ' -f1)\`
-          
-          **WARNING:**
-          This kernel provides unrestricted root access and disables security features.
-          Use only on devices you own. May void warranty.
-          
-          **CREDITS:**
-          - Base kernel: TegarXLu/kernel_xiaomi_onyx-gki
-          - Compiler: LLVM 22.1.0-rc1
-          - Build system: GitHub Actions
-          - Automation: NEXUS-GODMODE
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+EO
