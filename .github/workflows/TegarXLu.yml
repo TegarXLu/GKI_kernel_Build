@@ -326,11 +326,11 @@ jobs:
         chmod +x verify_build.sh
         ./verify_build.sh
 
-    - name: "🔥 COMPILE WITH FIXED MODULE SYSTEM"
+    - name: "🔥 ULTIMATE COMPILATION - NO TIME COMMAND ISSUES"
       run: |
         cd $KERNEL_DIR
         
-        # SET ENVIRONMENT
+        # SET ENVIRONMENT VARIABLES - SIMPLIFIED
         export ARCH=arm64
         export SUBARCH=arm64
         export LLVM=1
@@ -349,75 +349,88 @@ jobs:
         # SET PATHS
         export PATH=$LLVM_PATH:$GCC_AARCH64_PATH:$GCC_ARM32_PATH:$PATH
         
-        # LLVM22 OPTIMIZATION FLAGS
-        export KBUILD_CFLAGS="-march=armv9-a+fp16+rcpc+dotprod -flto=full -fuse-ld=lld"
-        export KBUILD_CFLAGS="$KBUILD_CFLAGS -O3 -ftree-vectorize -fgraphite-identity"
-        export KBUILD_CFLAGS="$KBUILD_CFLAGS -mllvm -polly -mllvm -polly-parallel"
+        # VERIFY TOOLS
+        echo "=== TOOL VERIFICATION ==="
+        echo "Clang: $(which clang)"
+        echo "LD: $(which ld.lld)"
+        echo "GCC AArch64: $(which aarch64-linux-gnu-gcc)"
+        echo "GCC ARM32: $(which arm-linux-gnueabi-gcc)"
         
-        export LDFLAGS="-Wl,--lto-O3 -Wl,--plugin-opt=-import-inline-limit=10"
-        
-        echo "=== COMPILATION ENVIRONMENT ==="
-        echo "CC: $(which $CC)"
-        echo "LD: $(which $LD)"
-        echo "ARCH: $ARCH"
-        echo "CFLAGS: $KBUILD_CFLAGS"
-        
-        # CLEAN AND CONFIGURE
+        # CLEAN PREVIOUS BUILD
+        echo "Cleaning previous build..."
         rm -rf out
+        mkdir -p out
+        
+        # CONFIGURE KERNEL
+        echo "Configuring kernel with $CONFIG..."
         make O=out $CONFIG
         
         # VERIFY CONFIG
-        echo "=== VERIFYING FINAL CONFIG ==="
-        grep -i "SUKISU\|KPM\|SUSFS\|NEXUS_GAMING" out/.config
+        echo "=== FINAL CONFIG CHECK ==="
+        grep -E "SUKISU|KPM|SUSFS|NEXUS_GAMING|LTO" out/.config
         
-        # COMPILE
+        # COMPILE KERNEL - WITH MANUAL TIMING
         echo "=== STARTING COMPILATION ==="
-        time make -j$THREADS O=out \
-          export ARCH=arm64
-          export SUBARCH=arm64
-          export CLANG_PATH=$GITHUB_WORKSPACE/clang
-          export PATH=$CLANG_PATH/bin:$PATH
-          set -x
-          set -e
-          export CC=clang
-          export CXX=clang++
-          export LD=ld.lld
-          export AR=llvm-ar
-          export NM=llvm-nm
-          export OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump
-          export STRIP=llvm-strip
-          export HOSTCC=clang
-          export HOSTCXX=clang++
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export LLVM=1
-          export LLVM_IAS=1
-          export LTO=full
-          make O=out ARCH=arm64 gki_defconfig
-          make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 LTO=full
+        START_TIME=$(date +%s)
+        
+        # Build command - SIMPLIFIED AND ROBUST
+        make -j$THREADS O=out \
+          LLVM=1 \
+          LLVM_IAS=1 \
+          CC="$CC" \
+          LD="$LD" \
+          AR="$AR" \
+          NM="$NM" \
+          STRIP="$STRIP" \
+          OBJCOPY="$OBJCOPY" \
+          OBJDUMP="$OBJDUMP" \
+          CLANG_TRIPLE="$CLANG_TRIPLE" \
+          CROSS_COMPILE="$CROSS_COMPILE" \
+          CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
           2>&1 | tee build.log
         
+        COMPILE_STATUS=$?
+        END_TIME=$(date +%s)
+        COMPILE_TIME=$((END_TIME - START_TIME))
+        
+        echo "Compilation completed in ${COMPILE_TIME} seconds"
+        echo "Exit status: $COMPILE_STATUS"
+        
         # CHECK BUILD RESULT
-        if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
-          SIZE=$(ls -lh out/arch/arm64/boot/Image.gz-dtb | awk '{print $5}')
-          echo "✅ KERNEL BUILD SUCCESSFUL - Size: $SIZE"
-          
-          # VERIFY MODULES
-          echo "=== MODULE VERIFICATION ==="
-          find out -name "*.ko" | grep -i "sukisu\|kpm\|susfs\|nexus" || echo "Modules built-in to kernel"
-          
-          # CHECK FOR ERRORS
-          ERROR_COUNT=$(grep -c "error:" build.log)
-          WARNING_COUNT=$(grep -c "warning:" build.log)
-          echo "Build errors: $ERROR_COUNT"
-          echo "Build warnings: $WARNING_COUNT"
+        if [ $COMPILE_STATUS -eq 0 ] && [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
+            SIZE=$(ls -lh out/arch/arm64/boot/Image.gz-dtb | awk '{print $5}')
+            echo "✅ KERNEL BUILD SUCCESSFUL"
+            echo "✅ Size: $SIZE"
+            echo "✅ Time: ${COMPILE_TIME} seconds"
+            
+            # CHECK FOR MODULES
+            echo "=== MODULE STATUS ==="
+            if find out -name "*.ko" | grep -q "."; then
+                echo "Modules built as loadable modules:"
+                find out -name "*.ko" | head -5
+            else
+                echo "Modules built-in to kernel (no .ko files)"
+            fi
+            
+            # ERROR/WARNING SUMMARY
+            ERROR_COUNT=$(grep -c "error:" build.log || echo "0")
+            WARNING_COUNT=$(grep -c "warning:" build.log || echo "0")
+            echo "Build errors: $ERROR_COUNT"
+            echo "Build warnings: $WARNING_COUNT"
+            
+            # SHOW KEY MESSAGES
+            echo "=== KEY BUILD MESSAGES ==="
+            tail -20 build.log | grep -i "sukisu\|nexus\|susfs\|llvm\|lto"
+            
         else
-          echo "❌ BUILD FAILED"
-          echo "=== LAST 50 LINES OF BUILD LOG ==="
-          tail -50 build.log
-          echo "=== ERROR SUMMARY ==="
-          grep -i "error:" build.log | head -20
-          exit 1
+            echo "❌ BUILD FAILED"
+            echo "=== LAST 30 LINES OF BUILD LOG ==="
+            tail -30 build.log
+            echo "=== ERROR SUMMARY ==="
+            grep -i "error:" build.log | head -10
+            echo "=== CRITICAL FAILURE POINTS ==="
+            grep -B5 -A5 "error:" build.log | head -30
+            exit 1
         fi
 
     - name: "📦 PACKAGE FIXED BUILD"
