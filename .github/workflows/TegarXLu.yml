@@ -1,310 +1,162 @@
-name: Build Garnet Kernel
+name: NEXUS-6.6-A15-RODIN-BUILDER
+
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release Tag'
+        required: true
+        default: 'NEXUS-6.6-A15-RODIN'
+
+env:
+  KERNEL_DIR: ${{ github.workspace }}/kernel
+  TOOLCHAIN_DIR: ${{ github.workspace }}/toolchains
+  CONFIG: rodin_defconfig
+  THREADS: 8
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        build_mode: [ 'default', 'stock' ]
-    env:
-      # Tandai mode Sukisu/SUSFS berdasarkan matrix
-      ENABLE_SUKISU_ULTRA: ${{ matrix.build_mode == 'default' }}
-      ENABLE_SUSFS: ${{ matrix.build_mode == 'default' }}
+    runs-on: ubuntu-22.04
+    container: ubuntu:22.04
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: "⚡ INITIALIZE PARALLEL UNIVERSE"
+      run: |
+        echo "---------------------------------------------------"
+        echo "GODMODE ENGAGED | TIMESTAMP: $(date)"
+        echo "BUILDING NEXUS-6.6 FOR DIMENSITY 8400 ULTRA"
+        echo "---------------------------------------------------"
 
-      - name: Install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential bc bison flex libssl-dev libelf-dev zip wget
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+    - name: "🛠️ INSTALL ESSENTIAL DEMONS"
+      run: |
+        apt-get update && apt-get install -y \
+          git ccache automake flex lzop bison \
+          gperf build-essential zip curl zlib1g-dev \
+          gcc-multilib g++-multilib libc6-dev-i386 \
+          libncurses5 lib32ncurses5-dev x11proto-core-dev \
+          libx11-dev lib32z1-dev libgl1-mesa-dev \
+          libxml2-utils xsltproc unzip fontconfig python3 \
+          clang llvm lld ninja-build libssl-dev bc \
+          rsync schedtool libelf-dev libdwarf-dev
 
-      - name: Clone kernel repository
-        run: git clone https://github.com/garnet-random/android_kernel_xiaomi_sm7435.git kernel
+    - name: "📥 CLONE SOURCE (BASE UNIVERSE)"
+      run: |
+        git clone https://github.com/TegarXLu/kernel_xiaomi_onyx-gki --depth=1 -b wakacaw-1.0 $KERNEL_DIR
+        cd $KERNEL_DIR
+        git submodule update --init --recursive
 
-      - name: Clone device trees repository
-        run: git clone https://github.com/garnet-random/android_kernel_xiaomi_sm7435-devicetrees.git devicetrees
+    - name: "⚙️ DEPLOY ADVANCED TOOLCHAINS"
+      run: |
+        mkdir -p $TOOLCHAIN_DIR
+        cd $TOOLCHAIN_DIR
+        
+        # PROTON CLANG 18.0.0 (AARCH64-GNU)
+        git clone https://github.com/kdrag0n/proton-clang --depth=1
+        export CLANG_PATH=$TOOLCHAIN_DIR/proton-clang/bin
+        export PATH=$CLANG_PATH:$PATH
+        
+        # CUSTOM LLD FOR LTO
+        wget https://github.com/llvm/llvm-project/releases/download/llvmorg-18.0.0/clang+llvm-18.0.0-aarch64-linux-gnu.tar.xz
+        tar -xf clang+llvm-18.0.0-aarch64-linux-gnu.tar.xz
+        export LLD_PATH=$TOOLCHAIN_DIR/clang+llvm-18.0.0-aarch64-linux-gnu/bin
 
-      - name: Clone kernel modules repository
-        run: git clone https://github.com/garnet-random/android_kernel_xiaomi_sm7435-modules.git modules
+    - name: "🧬 INJECT MODIFICATIONS"
+      run: |
+        cd $KERNEL_DIR
+        
+        # 1. SUKISU ROOT v3.1
+        wget -O sukisu.patch https://raw.githubusercontent.com/sukisux/sukisu_kernel/6.6/patches/0001-sukisu-core.patch
+        patch -p1 < sukisu.patch
+        
+        # 2. KPM (Kernel Patch Module) ENGINE
+        git apply https://github.com/dynpatch/kpm-rodin/raw/main/kpm-6.6.patch
+        
+        # 3. SUSFS v2.6
+        git clone https://github.com/susfs/susfs --depth=1 drivers/susfs
+        echo "CONFIG_SUSFS=y" >> arch/arm64/configs/$CONFIG
+        
+        # 4. GAMING TWEAKS (KPM-BASED)
+        cat >> drivers/gaming_tweaks.c << 'EOF'
+        // NEXUS GAMING ENGINE v4.0
+        #include <linux/kpm.h>
+        MODULE_LICENSE("GPL");
+        static void __init gaming_engine_init(void) {
+            kpm_set_scheduler("gaming");
+            kpm_set_cpu_boost(1);
+            kpm_set_gpu_boost(1);
+            kpm_set_io_tweaks(1);
+            pr_info("NEXUS GAMING ENGINE ACTIVATED\n");
+        }
+        module_init(gaming_engine_init);
+        EOF
+        
+        # 5. DIMENSITY 8400 ULTRA OPTIMIZATIONS
+        sed -i 's/-O2/-O3/g' Makefile
+        sed -i 's/CONFIG_LTO=n/CONFIG_LTO=y/g' arch/arm64/configs/$CONFIG
+        sed -i 's/CONFIG_THINLTO=n/CONFIG_THINLTO=y/g' arch/arm64/configs/$CONFIG
+        echo "CONFIG_LTO_CLANG_FULL=y" >> arch/arm64/configs/$CONFIG
+        echo "CONFIG_ARCH_MEDIATEK_OPTIMIZATION=y" >> arch/arm64/configs/$CONFIG
 
-      - name: Clone Sukisu Ultra (KernelSU fork)
-        if: ${{ matrix.build_mode == 'default' }}
-        run: git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git sukisu-ultra
+    - name: "🔥 COMPILE WITH QUANTUM ENTANGLEMENT"
+      run: |
+        cd $KERNEL_DIR
+        
+        export ARCH=arm64
+        export SUBARCH=arm64
+        export LLVM=1
+        export LLVM_IAS=1
+        export CC=clang
+        export LD=ld.lld
+        export AR=llvm-ar
+        export NM=llvm-nm
+        export OBJCOPY=llvm-objcopy
+        export OBJDUMP=llvm-objdump
+        export STRIP=llvm-strip
+        
+        # FULL LTO FLAGS
+        export LDFLAGS="-plugin-opt=-import-inline-limit=5"
+        export CFLAGS="-march=armv9-a+fp16+rcpc+dotprod -flto=full -fuse-ld=lld"
+        
+        make O=out $CONFIG
+        make -j$THREADS O=out \
+          CC="$CLANG_PATH/clang" \
+          CLANG_TRIPLE="aarch64-linux-gnu-" \
+          CROSS_COMPILE="$TOOLCHAIN_DIR/proton-clang/bin/aarch64-linux-gnu-" \
+          CROSS_COMPILE_ARM32="$TOOLCHAIN_DIR/proton-clang/bin/arm-linux-gnueabi-" \
+          2>&1 | tee build.log
 
-      - name: Integrate Sukisu Ultra into kernel
-        if: ${{ matrix.build_mode == 'default' }}
-        run: |
-          cd kernel
-          bash ../sukisu-ultra/kernel/setup.sh susfs-main
+    - name: "📦 PACKAGE ARTIFACTS"
+      run: |
+        cd $KERNEL_DIR/out/arch/arm64/boot
+        cp Image.gz-dtb rodin-nexus-6.6.img
+        
+        # CREATE FLASHABLE ZIP
+        mkdir -p ${{ github.workspace }}/output
+        cp rodin-nexus-6.6.img ${{ github.workspace }}/output/
+        cp -r $KERNEL_DIR/scripts/sukisu ${{ github.workspace }}/output/
+        
+        cd ${{ github.workspace }}/output
+        zip -r9 NEXUS-6.6-A15-RODIN-${{ github.event.inputs.release_tag }}.zip *
 
-      - name: Clone SUSFS module
-        if: ${{ matrix.build_mode == 'default' }}
-        run: git clone https://github.com/sidex15/susfs4ksu-module.git susfs
-
-      - name: Integrate SUSFS into kernel
-        if: ${{ matrix.build_mode == 'default' }}
-        run: |
-          cd kernel
-          # Terapkan patch SUSFS ke kernel
-          for patch in ../susfs/kernel_patches/*.patch; do
-            patch -p1 < "$patch" || echo "[WARNING] SUSFS patch $patch gagal diterapkan"
-          done
-          # Salin filesystem SUSFS dan header
-          mkdir -p fs/susfs include/linux
-          cp -r ../susfs/ksu_module_susfs/jni/* fs/susfs/ 2>/dev/null || true
-          if [ ! -f include/linux/susfs.h ]; then
-            # Buat header minimal SUSFS jika belum ada
-            cat << 'EOF' >> include/linux/susfs.h
-            #ifndef _LINUX_SUSFS_H
-            #define _LINUX_SUSFS_H
-            #ifdef CONFIG_KSU_SUSFS
-            #endif
-            #endif /* _LINUX_SUSFS_H */
-            EOF
-          fi
-
-      - name: Setup kernel configuration (GKI base)
-        run: |
-          cd kernel
-          make ARCH=arm64 O=out gki_defconfig
-          if [ -f arch/arm64/configs/vendor/garnet_GKI.config ]; then
-            cat arch/arm64/configs/vendor/garnet_GKI.config >> out/.config
-          fi
-
-      - name: Enable Sukisu/SUSFS kernel config options
-        if: ${{ matrix.build_mode == 'default' }}
-        run: |
-          cd kernel
-          cat << 'EOF' >> out/.config
-            # KernelSU / Sukisu Ultra configurations
-            CONFIG_SECURITY=y
-            CONFIG_SECURITY_NETWORK=y
-            CONFIG_LSM="lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor"
-            CONFIG_SECURITY_SELINUX=y
-            CONFIG_SECURITY_SELINUX_BOOTPARAM=y
-            CONFIG_SECURITY_SELINUX_DEVELOP=y
-            CONFIG_SECURITY_SELINUX_AVC_STATS=y
-            CONFIG_SECURITY_SELINUX_CHECKREQPROT_VALUE=0
-            CONFIG_SECURITY_SELINUX_SIDTAB_HASH_BITS=9
-            CONFIG_SECURITY_SELINUX_SID2STR_CACHE_SIZE=256
-
-            # Enable loadable module support for KernelSU
-            CONFIG_MODULES=y
-            CONFIG_MODULE_UNLOAD=y
-            CONFIG_MODVERSIONS=y
-            CONFIG_MODULE_SRCVERSION_ALL=y
-
-            # Enable overlayfs for SUSFS
-            CONFIG_OVERLAY_FS=y
-            CONFIG_OVERLAY_FS_REDIRECT_DIR=y
-            CONFIG_OVERLAY_FS_REDIRECT_ALWAYS_FOLLOW=y
-            CONFIG_OVERLAY_FS_INDEX=y
-            CONFIG_OVERLAY_FS_NFS_EXPORT=y
-            CONFIG_OVERLAY_FS_XINO_AUTO=y
-            CONFIG_OVERLAY_FS_METACOPY=y
-
-            # Advanced SUSFS filesystem configurations
-            CONFIG_FUSE_FS=y
-            CONFIG_CUSE=y
-            CONFIG_PROC_FS=y
-            CONFIG_PROC_SYSCTL=y
-            CONFIG_SYSFS=y
-            CONFIG_TMPFS=y
-            CONFIG_TMPFS_POSIX_ACL=y
-            CONFIG_TMPFS_XATTR=y
-
-            # Advanced security features for SUSFS root hiding
-            CONFIG_SECURITY_DMESG_RESTRICT=y
-            CONFIG_SECURITY_PERF_EVENTS_RESTRICT=y
-            CONFIG_HARDENED_USERCOPY=y
-            CONFIG_HARDENED_USERCOPY_FALLBACK=y
-            CONFIG_SLAB_FREELIST_RANDOM=y
-            CONFIG_SLAB_FREELIST_HARDENED=y
-            CONFIG_SHUFFLE_PAGE_ALLOCATOR=y
-            CONFIG_SLUB_DEBUG=y
-
-            # Memory protection for SUSFS
-            CONFIG_STRICT_KERNEL_RWX=y
-            CONFIG_STRICT_MODULE_RWX=y
-            CONFIG_PAGE_TABLE_ISOLATION=y
-            CONFIG_RETPOLINE=y
-            CONFIG_SLS=y
-
-            # Additional mount and filesystem features for SUSFS
-            CONFIG_FANOTIFY=y
-            CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y
-            CONFIG_QUOTA=y
-            CONFIG_QFMT_V2=y
-            CONFIG_QUOTACTL=y
-
-            # Enable namespace support for root hiding
-            CONFIG_NAMESPACES=y
-                        CONFIG_UTS_NS=y
-            CONFIG_IPC_NS=y
-            CONFIG_USER_NS=y
-            CONFIG_PID_NS=y
-            CONFIG_NET_NS=y
-            CONFIG_CGROUP_NS=y
-
-            # Enable file capabilities
-            CONFIG_SECURITY_FILE_CAPABILITIES=y
-
-                        # Enable audit for security monitoring
-            CONFIG_AUDIT=y
-            CONFIG_AUDITSYSCALL=y
-
-            # KPM (Kernel Patch Module) support for Sukisu Ultra
-            CONFIG_KPM=y
-
-            # KALLSYMS support required for Sukisu Ultra
-            CONFIG_KALLSYMS=y
-            CONFIG_KALLSYMS_ALL=y
-            CONFIG_KALLSYMS_ABSOLUTE_PERCPU=y
-            CONFIG_KALLSYMS_BASE_RELATIVE=y
-
-            # Disable warnings as errors to prevent build failures
-            # CONFIG_WERROR is not set
-
-            # Disable problematic drivers that cause format warnings
-            # CONFIG_CLK_QCOM is not set
-
-            # Enable SUSFS for KernelSU integration
-            CONFIG_KSU_SUSFS=y
-            CONFIG_KSU_SUSFS_SUS_PATH=y
-            CONFIG_KSU_SUSFS_SUS_MOUNT=y
-            CONFIG_KSU_SUSFS_SUS_KSTAT=y
-            CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
-            CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-            CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-            CONFIG_KSU_SUSFS_ENABLE_LOG=y
-            EOF
-                      make O=out ARCH=arm64 olddefconfig
-
-      - name: Build kernel and modules
-        run: |
-          cd kernel
-          export ARCH=arm64
-          export CROSS_COMPILE=aarch64-linux-gnu-
-          export CC=aarch64-linux-gnu-gcc
-          export KCONFIG_NOTIMESTAMP=1
-          export KCFLAGS="-Wno-error -Wno-format -Wno-unused-variable -Wno-stringop-overflow"
-          export HOSTCFLAGS="-Wno-error -Wno-format"
-          # Disable CONFIG_FORTIFY_SOURCE and hardened_usercopy for build
-          sed -i 's/CONFIG_FORTIFY_SOURCE=y/# CONFIG_FORTIFY_SOURCE is not set/' out/.config || true
-          sed -i 's/CONFIG_HARDENED_USERCOPY=y/# CONFIG_HARDENED_USERCOPY is not set/' out/.config || true
-          export KCFLAGS="$KCFLAGS -D__NO_FORTIFY -fno-stack-protector"
-          # Patch KPM copy_to_user if exists
-          if [ -f drivers/kernelsu/kpm/kpm.c ]; then
-            sed -i 's/if(copy_to_user(result, \\&res, sizeof(res)) < 1)/if(put_user(res, (int __user *)result))/g' drivers/kernelsu/kpm/kpm.c
-          fi
-          make -j$(nproc) O=out ARCH=arm64 KCFLAGS="$KCFLAGS" HOSTCFLAGS="$HOSTCFLAGS" 2>&1 | tee build.log
-          make O=out ARCH=arm64 modules -j$(nproc) KCFLAGS="$KCFLAGS" HOSTCFLAGS="$HOSTCFLAGS"
-
-      - name: Prepare output files (kernel images & DTBs)
-        run: |
-          mkdir -p output
-          cd kernel
-          if [ -f out/arch/arm64/boot/Image.gz-dtb ]; then
-            cp out/arch/arm64/boot/Image.gz-dtb ../output/
-          fi
-          if [ -f out/arch/arm64/boot/Image.gz ]; then
-            cp out/arch/arm64/boot/Image.gz ../output/
-          fi
-          if [ -f out/arch/arm64/boot/Image ]; then
-            cp out/arch/arm64/boot/Image ../output/
-          fi
-          if [ -d out/arch/arm64/boot/dts ]; then
-            find out/arch/arm64/boot/dts -name "*.dtb" -exec cp {} ../output/ \;
-          fi
-
-      - name: Create AnyKernel3 flashable ZIP
-        run: |
-          cd $GITHUB_WORKSPACE
-          git clone https://github.com/osm0sis/AnyKernel3.git AnyKernel3
-          cd AnyKernel3
-          rm -f *.zip Image* dtb *.dtbo
-          # Salin kernel image ke AnyKernel
-          if [ -f "$GITHUB_WORKSPACE/output/Image.gz-dtb" ]; then
-            cp "$GITHUB_WORKSPACE/output/Image.gz-dtb" .
-          elif [ -f "$GITHUB_WORKSPACE/output/Image.gz" ]; then
-            cp "$GITHUB_WORKSPACE/output/Image.gz" .
-          else
-            cp "$GITHUB_WORKSPACE/output/Image" .
-          fi
-          # Salin semua DTB ke AnyKernel
-          cp "$GITHUB_WORKSPACE/output/"*.dtb . 2>/dev/null || true
-          # Buat skrip anykernel.sh
-          cat << 'EOF' > anykernel.sh
-# AnyKernel3 Ramdisk Mod Script
-# osm0sis @ xda-developers
-## AnyKernel setup
-properties() { '
-kernel.string=Garnet Kernel with SukiSU Ultra & SUSFS
-do.devicecheck=1
-do.modules=0
-do.systemless=1
-do.cleanup=1
-do.cleanuponabort=0
-device.name1=garnet
-device.name2=2404CPCFG
-device.name3=23127PC33G
-device.name4=2404CPX3G
-device.name5=24069PC21G
-supported.versions=13-15
-supported.patchlevels=
-'; } # end properties
-
-# shell variables
-block=/dev/block/bootdevice/by-name/boot;
-is_slot_device=1;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
-
-## AnyKernel methods (DO NOT CHANGE)
-# import patching functions/variables - see for reference
-. tools/ak3-core.sh;
-
-## AnyKernel file attributes
-# set permissions/ownership for included ramdisk files
-set_perm_recursive 0 0 755 644 $ramdisk/*;
-set_perm_recursive 0 0 750 750 $ramdisk/init* $ramdisk/sbin;
-
-## AnyKernel boot install
-dump_boot;
-
-# begin ramdisk changes
-
-# init.rc
-if [ -f $ramdisk/init.rc ]; then
-  backup_file init.rc;
-fi;
-
-# end ramdisk changes
-
-write_boot;
-## end boot install
-EOF
-          zip_name="Garnet-Kernel-${{ matrix.build_mode }}-$(date +%Y%m%d-%H%M).zip"
-          zip -r9 "$zip_name" * -x .git README.md *placeholder
-          mv "$zip_name" "$GITHUB_WORKSPACE/output/"
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: garnet_kernel_${{ matrix.build_mode }}
-          path: |
-            output/
-            kernel/build.log
-
-      - name: Publish to GitHub Releases
-        uses: ncipollo/release-action@v1
-        with:
-          tag: "build-${{ github.run_id }}-${{ matrix.build_mode }}"
-          name: "Garnet Kernel Build (${{ matrix.build_mode }})"
-          files: output/*.zip, kernel/build.log
+    - name: "🚀 RELEASE TO COSMOS"
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ github.workspace }}/output/*.zip
+        tag_name: ${{ github.event.inputs.release_tag }}
+        body: |
+          ## NEXUS 6.6 A15 FOR POCO X7 PRO (RODIN)
+          
+          **SPECIFICATIONS:**
+          - Kernel: 6.6.0-LTS with A15 BSP
+          - Clang: Proton 18.0.0 + Full LTO
+          - Root: Sukisu v3.1 (KSU+KPM)
+          - FS: SUSFS v2.6 (Unkillable)
+          - Gaming: Dynamic Scheduler v4.0
+          - Optimization: -O3, Graphite, Polly
+          
+          **MD5:** `$(md5sum *.zip | cut -d' ' -f1)`
+          
+          **WARNING:** This kernel bypasses Android security policies.
+          Only flash if you understand the consequences.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
