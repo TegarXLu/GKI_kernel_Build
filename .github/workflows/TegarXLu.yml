@@ -40,7 +40,7 @@ jobs:
           libxml2-utils xsltproc unzip fontconfig python3 \
           python3-pip clang llvm lld ninja-build libssl-dev bc \
           rsync schedtool libelf-dev libdwarf-dev kmod cpio \
-          libtinfo5-dev libgmp-dev libmpc-dev libmpfr-dev
+          libgmp-dev libmpc-dev libmpfr-dev
 
     - name: "📥 CLONE SOURCE (BASE UNIVERSE)"
       run: |
