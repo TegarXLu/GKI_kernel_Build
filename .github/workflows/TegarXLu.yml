@@ -321,22 +321,22 @@ jobs:
         
         chmod +x verify_build.sh
         ./verify_build.sh
-    - name: "🔥 ULTIMATE COMPILATION"
+    - name: "🔥 ULTIMATE COMPILATION - NO TIME COMMAND ISSUES"
       run: |
         cd $KERNEL_DIR
-    
-        # TRUTH IN VERSIONING
+        
+        # SET ENVIRONMENT VARIABLES - SIMPLIFIED
         export ARCH=arm64
         export SUBARCH=arm64
         export LLVM=1
         export LLVM_IAS=1
-        export CC="$LLVM_PATH/clang"
-        export LD="$LLVM_PATH/ld.lld"
-        export AR="$LLVM_PATH/llvm-ar"
-        export NM="$LLVM_PATH/llvm-nm"
-        export STRIP="$LLVM_PATH/llvm-strip"
-        export OBJCOPY="$LLVM_PATH/llvm-objcopy"
-        export OBJDUMP="$LLVM_PATH/llvm-objdump"
+        export CC="clang"
+        export LD="ld.lld"
+        export AR="llvm-ar"
+        export NM="llvm-nm"
+        export STRIP="llvm-strip"
+        export OBJCOPY="llvm-objcopy"
+        export OBJDUMP="llvm-objdump"
         export CLANG_TRIPLE="aarch64-linux-gnu-"
         export CROSS_COMPILE="aarch64-linux-gnu-"
         export CROSS_COMPILE_ARM32="arm-linux-gnueabi-"
