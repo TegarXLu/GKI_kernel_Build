@@ -45,7 +45,7 @@ jobs:
           openssl ca-certificates
     - name: "📥 CLONE SOURCE WITH SUBMODULES"
       run: |
-        git clone https://github.com/TegarXLu/onyx_clo.git --depth=1 -b susfs-6.6.77 $KERNEL_DIR
+        git clone https://github.com/TegarXLu/onyx_clo.git --depth=1 -b 6.6.77-capybara-clo-2.3 $KERNEL_DIR
         cd $KERNEL_DIR
         git submodule update --init --recursive --depth=1
         ls -la
