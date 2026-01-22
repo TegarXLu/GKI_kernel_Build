@@ -47,7 +47,7 @@ jobs:
 
     - name: "📥 CLONE SOURCE WITH VERIFICATION"
       run: |
-        git clone https://github.com/TegarXLu/kernel_xiaomi_onyx-gki --depth=1 -b android13-6.6 $KERNEL_DIR
+        git clone https://github.com/TegarXLu/onyx_clo.git --depth=1 -b susfs-6.6.77 $KERNEL_DIR
         cd $KERNEL_DIR
         git submodule update --init --recursive --depth=1
         
@@ -64,7 +64,7 @@ jobs:
         # DOWNLOAD LLVM 22.1.0
         echo "Downloading LLVM 22.1.0-rc1..."
         curl -L -o llvm-22.1.0-rc1.tar.xz \
-          "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.0-rc1/LLVM-22.1.0-rc1-Linux-X64.tar.xz"
+          "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
         
         tar -xf llvm-22.1.0-rc1.tar.xz
         mv LLVM-22.1.0-rc1-Linux-X64 llvm-22.1.0
