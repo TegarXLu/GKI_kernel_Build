@@ -49,31 +49,27 @@ jobs:
         cd $KERNEL_DIR
         git submodule update --init --recursive --depth=1
         ls -la
-    - name: "⚙️ DEPLOY LLVM 18.1.8 TOOLCHAIN (CORRECTED)"
+    - name: "⚙️ DEPLOY LLVM 22.1.0-rc1 TOOLCHAIN"
       run: |
         mkdir -p $TOOLCHAIN_DIR
         cd $TOOLCHAIN_DIR
-    
-        echo "Downloading llvm-18.1.8..."
-        curl -L -o clang-llvm.tar.xz \
-          "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
-    
+        
+        echo "Downloading LLVM 22.1.0-rc1..."
+        curl -L -o llvm-22.1.0-rc1.tar.xz \
+          "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.0-rc1/LLVM-22.1.0-rc1-Linux-X64.tar.xz"
+        
         echo "Extracting LLVM..."
-        tar -xf clang-llvm.tar.xz
-        mv clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04 llvm-18.1.8
-    
-        # CORRECT PATH - NO LIES
-        export LLVM_PATH=$TOOLCHAIN_DIR/llvm-18.1.8/bin
+        tar -xf llvm-22.1.0-rc1.tar.xz
+        mv LLVM-22.1.0-rc1-Linux-X64 llvm-22.1.0
+        
+        export LLVM_PATH=$TOOLCHAIN_DIR/llvm-22.1.0/bin
         export PATH=$LLVM_PATH:$PATH
         
-        vecho "LLVM Path: $LLVM_PATH"
-        ls -la $LLVM_PATH/clang
-    
         # DOWNLOAD GCC FOR COMPATIBILITY
         cd $TOOLCHAIN_DIR
         git clone https://github.com/mvaisakh/gcc-arm64 --depth=1 gcc-arm64
         git clone https://github.com/mvaisakh/gcc-arm --depth=1 gcc-arm32
-    
+        
         export GCC_AARCH64_PATH=$TOOLCHAIN_DIR/gcc-arm64/bin
         export GCC_ARM32_PATH=$TOOLCHAIN_DIR/gcc-arm32/bin
         export PATH=$GCC_AARCH64_PATH:$GCC_ARM32_PATH:$PATH
