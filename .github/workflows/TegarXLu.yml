@@ -56,7 +56,7 @@ jobs:
         
         echo "Downloading LLVM 22.1.0-rc1..."
         curl -L -o llvm-22.1.0-rc1.tar.xz \
-          "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.0-rc1/LLVM-22.1.0-rc1-Linux-X64.tar.xz"
+          "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
         
         echo "Extracting LLVM..."
         tar -xf llvm-22.1.0-rc1.tar.xz
