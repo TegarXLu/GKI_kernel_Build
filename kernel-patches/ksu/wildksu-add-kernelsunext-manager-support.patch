@@ -1,0 +1,23 @@
+diff --git a/kernel/apk_sign.c b/kernel/apk_sign.c
+index 1111111..2222222 100644
+--- a/kernel/apk_sign.c
++++ b/kernel/apk_sign.c
+@@ -12,6 +12,9 @@
+ #include "apk_sign.h"
+ #include "app_profile.h"
+ #include "klog.h"
++// KernelSU Next Manager Signature Support
++#define EXPECTED_SIZE_KSUNEXT 0x3e6
++#define EXPECTED_HASH_KSUNEXT "79e590113c4c4c0c222978e413a5faa801666957b1212a328e46c00c69821bf7"
+ #include "throne_tracker.h"
+ 
+ diff --git a/kernel/apk_sign.c b/kernel/apk_sign.c
+ index 1111111..3333333 100644
+ --- a/kernel/apk_sign.c
+ +++ b/kernel/apk_sign.c
+@@ -28,5 +28,6 @@
+ #ifdef EXPECTED_SIZE
+        { EXPECTED_SIZE, EXPECTED_HASH }, // Custom
+ #endif
++        { EXPECTED_SIZE_KSUNEXT, EXPECTED_HASH_KSUNEXT }, // KernelSU Next
+ };
