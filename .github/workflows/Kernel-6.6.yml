@@ -322,9 +322,9 @@ jobs:
 
           echo "Starting kernel build..."
           make -C "$GITHUB_WORKSPACE/gki/common" \
-            O="$OUTDIR" \
-            ARCH=$ARCH CC=$CC LLVM=$LLVM LD=$LD CROSS_COMPILE=${CROSS_COMPILE} \
-            KCFLAGS="$MAKE_KCFLAGS" LTO="$LTO" -j$(nproc)
+          O="$OUTDIR" \
+          ARCH=$ARCH CC=$CC LLVM=$LLVM LD=$LD CROSS_COMPILE=${CROSS_COMPILE} \
+          KCFLAGS="$MAKE_KCFLAGS" LTO="$LTO" -j$(nproc)
 
           echo "Build finished. Artifacts (if sukses) should be in: $OUTDIR"
       
