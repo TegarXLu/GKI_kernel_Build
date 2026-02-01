@@ -95,15 +95,8 @@ jobs:
           cd gki/common
           echo "[6/12] Setup ReSukiSU & SUSFS"
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
-          git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android15-6.6 sus
-          rm -rf sus/.git
-          susfs=sus/kernel_patches
-          cp -r $susfs/fs .
-          cp -r $susfs/include .
-          cp -r $susfs/50_add_susfs_in_gki-android15-6.6.patch .
-          patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch
-          echo "[✓] SUSFS patched"
-
+          echo "[✓] SUSFS already included in kernel source — skipping patch"
+          
       - name: Apply common fixes
         working-directory: gki/common
         run: |
