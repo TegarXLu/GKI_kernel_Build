@@ -258,7 +258,7 @@ jobs:
       - name: Compile
         working-directory: gki
         run: |
-          LTO=full BUILD_CONFIG=common/build.config.gki.aarch64
+          LTO=full BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 
       - name: Setup Environment Variables for Packaging
         id: vars
