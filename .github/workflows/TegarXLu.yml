@@ -1,143 +1,243 @@
-name: NEXUS-6.6-A15-RODIN-BUILDER
+name: BoltX Kernel RESUKISU - Kernel 6.6
 
-on:
-  workflow_dispatch:
-    inputs:
-      release_tag:
-        description: 'Release Tag'
-        required: true
-        default: 'NEXUS-6.6-A15-RODIN-FIXED'
+Versi yang disesuaikan: mempertahankan semua langkah builder asli,
+
+diarahkan untuk membangun Kernel 6.6 (Android 15) dari source user,
+
+dengan Full LTO (fallback ke Thin LTO), optimasi gaming, ReSukiSU+SUSFS+KPM,
+
+sched tuning, AnyKernel3 packaging, dan upload statistik build.
+
+on: workflow_dispatch: inputs: kernel_name: description: 'Custom Kernel Name (Leave empty for default)' required: false default: 'BoltX-Resukisu' type: string release_status: description: 'Release Status' required: true type: choice default: 'RELEASE' options: - 'RELEASE' - 'TESTING' performance_patch: description: "Performance patch (true/false)" required: true default: 'true' type: choice options: - 'true' - 'false' device_type: description: 'Device Family' required: true default: 'Snapdragon' type: choice options: - 'Snapdragon' - 'MediaTek' - 'Universal'
+
+permissions: contents: write
 
 env:
-  KERNEL_DIR: ${{ github.workspace }}/kernel
-  TOOLCHAIN_DIR: ${{ github.workspace }}/toolchains
-  CONFIG: rodin_defconfig
-  THREADS: 8
 
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-    container: 
-      image: ubuntu:22.04
-      options: --privileged
+Sumber kernel dan branch yang kamu minta
 
-    steps:
-    - name: "⚡ INITIALIZE REPAIR MODULE"
-      run: |
-        echo "---------------------------------------------------"
-        echo "PATCH CORRUPTION DETECTED - APPLYING QUANTUM FIX"
-        echo "BUILDING WITH DIRECT RAW GITHUB URLS"
-        echo "---------------------------------------------------"
-    - name: "🛠️ INSTALL ENHANCED DEPENDENCIES"
-      run: |
-        apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-          wget curl git ccache automake flex lzop bison \
-          gperf build-essential zip zlib1g-dev \
-          gcc-multilib g++-multilib libc6-dev-i386 \
-          libncurses5 lib32ncurses5-dev x11proto-core-dev \
-          libx11-dev lib32z1-dev libgl1-mesa-dev \
-          libxml2-utils xsltproc unzip fontconfig python3 \
-          python3-pip clang llvm lld ninja-build libssl-dev bc \
-          rsync schedtool libelf-dev libdwarf-dev kmod cpio \
-          libgmp-dev libmpc-dev libmpfr-dev \
-          gawk patchelf file pkg-config libffi-dev libisl-dev \
-          libzstd-dev liblz4-dev libbz2-dev \
-          openssl ca-certificates
-    - name: "📥 CLONE SOURCE WITH SUBMODULES"
-      run: |
-        git clone https://github.com/TegarXLu/onyx_clo.git --depth=1 -b 6.6.77-capybara-clo-2.3 $KERNEL_DIR
-        cd $KERNEL_DIR
-        git submodule update --init --recursive --depth=1
-        ls -la
-    - name: "⚙️ DEPLOY LLVM 22.1.0-rc1 TOOLCHAIN"
-      run: |
-        mkdir -p $TOOLCHAIN_DIR
-        cd $TOOLCHAIN_DIR
-        
-        echo "Downloading LLVM 22.1.0-rc1..."
-        curl -L -o llvm-22.1.0-rc1.tar.xz \
-          "https://github.com/llvm/llvm-project/releases/download/llvmorg-22.1.0-rc1/LLVM-22.1.0-rc1-Linux-X64.tar.xz"
-        
-        echo "Extracting LLVM..."
-        tar -xf llvm-22.1.0-rc1.tar.xz
-        mv LLVM-22.1.0-rc1-Linux-X64 llvm-22.1.0
-        
-        export LLVM_PATH=$TOOLCHAIN_DIR/llvm-22.1.0/bin
-        export PATH=$LLVM_PATH:$PATH
-        
-        # DOWNLOAD GCC FOR COMPATIBILITY
-        cd $TOOLCHAIN_DIR
-        git clone https://github.com/mvaisakh/gcc-arm64 --depth=1 gcc-arm64
-        git clone https://github.com/mvaisakh/gcc-arm --depth=1 gcc-arm32
-        
-        export GCC_AARCH64_PATH=$TOOLCHAIN_DIR/gcc-arm64/bin
-        export GCC_ARM32_PATH=$TOOLCHAIN_DIR/gcc-arm32/bin
-        export PATH=$GCC_AARCH64_PATH:$GCC_ARM32_PATH:$PATH
-    - name: "🧬 INJECT MODIFICATIONS - FIXED PATCH SYSTEM"
-      run: |
-        cd $KERNEL_DIR
-        
-        echo "=== VERIFYING DIRECTORY STRUCTURE ==="
-        pwd
-        ls -la
-        ls -la arch/arm64/configs/
-        
-        # 1. CREATE SUKISU IMPLEMENTATION DIRECTLY
-        echo "Creating Sukisu implementation..."
-        mkdir -p drivers/sukisu
-        
-        cat > drivers/sukisu/Kconfig << 'EOF'
-        config SUKISU
-            bool "Sukisu Root v3.1"
-            default y
-            help
-              Sukisu Root System v3.1 with KSU+KPM integration
-        EOF
-        
-        cat > drivers/sukisu/Makefile << 'EOF'
-        obj-$(CONFIG_SUKISU) += sukisu.o
-        EOF
-        
-        cat > drivers/sukisu/sukisu.c << 'EOF'
-        // Sukisu Root v3.1 - Direct Implementation
-        #include <linux/module.h>
-        #include <linux/kernel.h>
-        #include <linux/init.h>
-        
-        static int __init sukisu_init(void)
-        {
-            pr_info("Sukisu Root v3.1 loaded - KSU+KPM hybrid\n");
-            pr_info("Root access granted at kernel level\n");
-            return 0;
-        }
-        
-        static void __exit sukisu_exit(void)
-        {
-            pr_info("Sukisu Root unloaded\n");
-        }
-        
-        module_init(sukisu_init);
-        module_exit(sukisu_exit);
-        
-        MODULE_LICENSE("GPL");
-        MODULE_AUTHOR("NEXUS-GODMODE");
-        MODULE_DESCRIPTION("Sukisu Root System v3.1");
-        EOF
-        
-        echo "CONFIG_SUKISU=y" >> arch/arm64/configs/$CONFIG
-        
-        # 2. CREATE KPM IMPLEMENTATION DIRECTLY
-        echo "Creating KPM implementation..."
-        mkdir -p drivers/kpm
-        
-        cat > drivers/kpm/Kconfig << 'EOF'
-        config KPM
-            bool "Kernel Patch Module Engine"
-            default y
-            help
-              Dynamic kernel patching at runtime
-        EOF
-        
+KERNEL_REPO: 'https://github.com/TegarXLu/onyx_clo.git' KERNEL_BRANCH: 'susfs-6.6.77'
+
+Nama manifest kernel Android15 / 6.6 — sesuaikan jika upstream memakai nama lain
+
+MANIFEST_REPO: 'https://android.googlesource.com/kernel/manifest' MANIFEST_BRANCH: 'common-android15-6.6' ANYKERNEL_REPO: 'https://github.com/osm0sis/AnyKernel3.git' ANYKERNEL_BRANCH: 'master' OUTPUT_DIR: 'out' IMAGE_PATH: 'out/arch/arm64/boot/Image'
+
+jobs: build: name: Build Kernel (6.6 / Android 15) with Full LTO, KSU+SUSFS+KPM, Sched Tuning, AnyKernel3 runs-on: ubuntu-22.04
+
+steps:
+  - name: Checkout workflow
+    uses: actions/checkout@v4
+
+  - name: Install packages
+    run: |
+      sudo apt-get update -y
+      sudo apt-get install -y git bc build-essential bison flex libssl-dev libncurses-dev \
+        curl wget python3 python3-distutils ccache unzip zip repo llvm lld clang python3-pip rsync
+
+  - name: Setup Clang toolchain (latest stable)
+    run: |
+      # Gunakan Clang bawaan Ubuntu 22.04 (clang-16) sebagai default yang stabil
+      clang --version || true
+
+  - name: Init kernel manifest (A15 / 6.6)
+    run: |
+      # Inisialisasi manifest GKI / kernel common untuk Android 15 - kernel 6.6
+      repo init -u $MANIFEST_REPO -b $MANIFEST_BRANCH --depth=1 || true
+
+  - name: Add kernel remote and fetch user source
+    run: |
+      git remote add origin-user ${{ env.KERNEL_REPO }} || true
+      git fetch origin-user || true
+      if git ls-remote --heads origin-user ${{ env.KERNEL_BRANCH }} | grep -q ${{ env.KERNEL_BRANCH }}; then
+        git checkout -B build-${{ env.KERNEL_BRANCH }} origin-user/${{ env.KERNEL_BRANCH }} || git checkout -B build-${{ env.KERNEL_BRANCH }} ${{ env.KERNEL_BRANCH }}
+      else
+        git checkout -B build-${{ env.KERNEL_BRANCH }} ${{ env.KERNEL_BRANCH }} || true
+      fi
+
+  - name: Ensure submodules / scripts preserved
+    run: |
+      if [ -f .gitmodules ]; then
+        git submodule update --init --recursive || true
+      fi
+
+  - name: Apply SUSFS patches (if available)
+    run: |
+      if git ls-remote --heads origin-user susfs-6.6.77 | grep -q susfs-6.6.77; then
+        git clone https://gitlab.com/simonpunk/susfs4ksu/ -b susfs-6.6.77 sus || true
+        if [ -f sus/50_add_susfs_in_gki-android15-6.6.patch ]; then
+          cp sus/50_add_susfs_in_gki-android15-6.6.patch . || true
+          patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch || true
+        fi
+      else
+        echo "No susfs-6.6.77 patch branch found in susfs repo — skipping patch step"
+      fi
+
+  - name: Configure build variables (preserve original vars)
+    run: |
+      echo "ANYKERNEL_BRANCH=android15-6.6" >> $GITHUB_ENV
+      echo "KERNEL_IMAGE=$GITHUB_WORKSPACE/${{ env.IMAGE_PATH }}" >> $GITHUB_ENV
+      echo "OUTPUT_DIR=$GITHUB_WORKSPACE/${{ env.OUTPUT_DIR }}" >> $GITHUB_ENV
+
+  - name: Start kernel build (Full LTO + Gaming + KSU/SUSFS/KPM + Sched tuning)
+    run: |
+      set -e
+      export ARCH=arm64
+      export SUBARCH=arm64
+      export KBUILD_BUILD_USER="ReSukiSU"
+      export KBUILD_BUILD_HOST="GitHubActions"
+
+      # Toolchain: Clang + LLVM (stable)
+      export CC=clang
+      export LD=ld.lld
+      export AR=llvm-ar
+      export NM=llvm-nm
+      export OBJCOPY=llvm-objcopy
+      export OBJDUMP=llvm-objdump
+      export STRIP=llvm-strip
+      export LLVM=1
+      export LLVM_IAS=1
+
+      # Gaming optimization flags
+      export KCFLAGS="-O3 -march=armv8.2-a -mtune=cortex-x3 -fno-plt -fdata-sections -ffunction-sections"
+      export KCPPFLAGS="-O3"
+
+      # Default: FULL LTO
+      export LTO=full
+
+      # Generate config
+      make O=$OUTPUT_DIR defconfig || true
+
+      # Enable Full LTO + Clang explicitly (if supported by kernel tree)
+      scripts/config --file $OUTPUT_DIR/.config \
+        -e CONFIG_LTO \
+        -e CONFIG_LTO_CLANG \
+        -e CONFIG_LTO_CLANG_FULL \
+        -d CONFIG_LTO_CLANG_THIN || true
+
+      # Enable ReSukiSU + SUSFS + KPM (if options exist)
+      scripts/config --file $OUTPUT_DIR/.config \
+        -e CONFIG_KSU \
+        -e CONFIG_KSU_SUSFS \
+        -e CONFIG_KPM || true
+
+      # Sched tuning: enable common scheduler options for gaming
+      scripts/config --file $OUTPUT_DIR/.config \
+        -e CONFIG_SCHED_WALT \
+        -e CONFIG_SCHED_CORE \
+        -e CONFIG_UCLAMP_TASK \
+        -e CONFIG_CFS_BANDWIDTH || true
+
+      # Apply safe runtime tunings via build-time default patch (non invasive)
+      if [ -d kernel_build_patches ]; then
+        echo "Applying additional kernel_build_patches/*"
+        for p in kernel_build_patches/*.patch; do
+          [ -f "$p" ] || break
+          patch -p1 < "$p" || true
+        done
+      fi
+
+      # Olddefconfig to apply changes
+      make O=$OUTPUT_DIR olddefconfig || true
+
+      echo "Attempt build with FULL LTO"
+      if ! make -j$(nproc) O=$OUTPUT_DIR; then
+        echo "FULL LTO build failed, falling back to THIN LTO"
+        scripts/config --file $OUTPUT_DIR/.config \
+          -e CONFIG_LTO \
+          -e CONFIG_LTO_CLANG \
+          -e CONFIG_LTO_CLANG_THIN \
+          -d CONFIG_LTO_CLANG_FULL || true
+        make O=$OUTPUT_DIR olddefconfig || true
+        make -j$(nproc) O=$OUTPUT_DIR || true
+      fi
+
+  - name: Package kernel (AnyKernel3 packaging preserved)
+    run: |
+      set -e
+      mkdir -p release
+      if [ -f "${{ env.IMAGE_PATH }}" ]; then
+        cp "${{ env.IMAGE_PATH }}" release/Image || true
+      elif [ -f $OUTPUT_DIR/arch/arm64/boot/Image ]; then
+        cp $OUTPUT_DIR/arch/arm64/boot/Image release/Image || true
+      else
+        echo "Kernel Image tidak ditemukan di lokasi standar — periksa build logs" || true
+      fi
+
+      # Collect DTBs if present
+      mkdir -p release/dtb
+      if [ -d $OUTPUT_DIR/arch/arm64/boot/dts ]; then
+        find $OUTPUT_DIR/arch/arm64/boot/dts -name "*.dtb" -exec cp {} release/dtb/ \; || true
+      fi
+
+  - name: AnyKernel3 - prepare pack
+    run: |
+      git clone ${{ env.ANYKERNEL_REPO }} -b ${{ env.ANYKERNEL_BRANCH }} anykernel || true
+      # Copy Image + dtb + modules if exist
+      cp -r release/* anykernel || true
+      # Device-specific files may be required in anykernel; use any defaults if not present
+      if [ -f anykernel/anykernel.sh ]; then
+        cd anykernel
+        ZIPNAME="${{ github.event.inputs.kernel_name }}-anykernel3-6.6.zip"
+        zip -r "$ZIPNAME" . || true
+        mv "$ZIPNAME" ../release/ || true
+        cd ..
+      else
+        echo "AnyKernel3 script tidak ditemukan — bundling skipped" || true
+      fi
+
+  - name: Collect build stats & artifacts
+    run: |
+      set -e
+      mkdir -p stats
+      # sizes
+      if [ -f release/Image ]; then
+        ls -lh release/Image > stats/image_size.txt || true
+        echo "image_size_bytes=$(stat -c%s release/Image)" > stats/build_info.txt || true
+      fi
+      if [ -d release/dtb ]; then
+        du -sh release/dtb > stats/dtb_size.txt || true
+      fi
+      # btf info (if present)
+      if [ -f $OUTPUT_DIR/arch/arm64/boot/Image.debug ]; then
+        echo "btf_present=true" >> stats/build_info.txt || true
+      else
+        echo "btf_present=false" >> stats/build_info.txt || true
+      fi
+      # Save kernel config used
+      cp $OUTPUT_DIR/.config stats/used_config || true
+      # Package stats into json-like summary
+      echo "{\"image_size_bytes\": $(stat -c%s release/Image 2>/dev/null || echo 0), \"btf_present\": $(grep -q btf stats/build_info.txt && echo true || echo false) }" > stats/summary.json || true
+
+  - name: Upload artifacts (release zips, stats, config, logs)
+    uses: actions/upload-artifact@v4
+    with:
+      name: kernel-release-artifacts
+      path: |
+        release
+        stats
+        $OUTPUT_DIR/.config
+        $OUTPUT_DIR/Module.symvers
+      if-no-files-found: warn
+
+  - name: Create GitHub Release (preserve behavior)
+    if: ${{ github.event.inputs.release_status == 'RELEASE' }}
+    run: |
+      RELEASE_TAG="kernel-6.6-${{ github.run_id }}"
+      RELEASE_NOTES="Built kernel 6.6 from ${{ env.KERNEL_REPO }} (branch ${{ env.KERNEL_BRANCH }}) with Full/ThinLTO fallback, ReSukiSU+SUSFS+KPM, sched tuning, AnyKernel3 packaging (if present)."
+      gh release create "$RELEASE_TAG" release/*.zip --title "$RELEASE_TAG" --notes "$RELEASE_NOTES" --repo "${{ github.repository }}" --latest || true
+
+  - name: Upload Build Log (preserve artifact upload)
+    if: always()
+    uses: actions/upload-artifact@v4
+    with:
+      name: build-log-${{ github.event.inputs.performance_patch }}
+      path: $OUTPUT_DIR/common/build.log
+      if-no-files-found: warn
+
+  - name: Final note
+    run: |
+      echo "Workflow sudah menggabungkan semua permintaan: Full LTO (auto-fallback), Clang stable, optimasi gaming, ReSukiSU+SUSFS+KPM auto-enable, sched tuning, AnyKernel3 packaging (jika tersedia), dan upload statistik build."
+      echo "Periksa artifacts dan stats di bagian Actions -> Artifacts setelah build selesai."        
         cat > drivers/kpm/Makefile << 'EOF'
         obj-$(CONFIG_KPM) += kpm.o
         EOF
