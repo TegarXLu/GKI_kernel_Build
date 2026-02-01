@@ -269,7 +269,7 @@ jobs:
           BUILD_CFG="$GITHUB_WORKSPACE/gki/common/build.config.gki.aarch64"
 
           # --- paksa LTO sesuai permintaan ---
-          export LTO=thin
+          export LTO=full
 
           # --- parse sederhana: baca KEY=VAL (abaikan komentar) dan export ---
           if [ -f "$BUILD_CFG" ]; then
