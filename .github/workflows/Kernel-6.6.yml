@@ -255,11 +255,30 @@ jobs:
           git add .
           git commit -m "Final clean tree before build" || true
 
-      - name: Compile
-        working-directory: gki
+      - name: Compile (manual make)
+        working-directory: gki/common
         run: |
-          LTO=full BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
+          set -e
+          # path ke clang yang sudah di-untar oleh step Setup Clang
+          PREBUILTS="$GITHUB_WORKSPACE/prebuilts-master/clang/host/linux-x86/clang-r563880b"
+          export PATH="$PREBUILTS/bin:$PATH"
 
+          export ARCH=arm64
+          export CC=clang
+          export LD=ld.lld
+          export LLVM=1
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export LTO=thin
+
+          OUTDIR="$GITHUB_WORKSPACE/gki/out/android15-6.6"
+          mkdir -p "$OUTDIR"
+
+          echo "-> Generating gki_defconfig"
+          make -C "$GITHUB_WORKSPACE/gki/common" O="$OUTDIR" ARCH=$ARCH gki_defconfig
+
+          echo "-> Building kernel (this may take a while)"
+          make -C "$GITHUB_WORKSPACE/gki/common" O="$OUTDIR" ARCH=$ARCH CC=$CC LLVM=$LLVM LD=$LD CROSS_COMPILE=${CROSS_COMPILE} -j$(nproc)
+      
       - name: Setup Environment Variables for Packaging
         id: vars
         run: |
