@@ -1,599 +1,357 @@
-name: NEXUS-6.6-A15-RODIN-BUILDER
-
+name: TegarXLu Kernel RESUKISU
+# new Branch builtin
 on:
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: 'Release Tag'
+      kernel_name:
+        description: 'Custom Kernel Name (Leave empty for default)'
+        required: false
+        default: ''
+        type: string
+      release_status:
+        description: 'Release Status'
         required: true
-        default: 'NEXUS-6.6-A15-RODIN-PERFECT'
+        type: choice
+        default: 'RELEASE'
+        options:
+          - 'RELEASE'
+          - 'BETA'
+      clang_version:
+        description: 'Select Clang Version'
+        required: true
+        type: choice
+        options:
+          - 'r536225 (Clang 19)'
+          - 'r547379 (Clang 20)'
+      performance_patch:
+        description: 'Select Device SoC for Performance Tuning (Internal)'
+        required: true
+        type: choice
+        default: 'Mediatek'
+        options:
+          - 'MediaTek'
+          - 'Universal'
 
-env:
-  KERNEL_DIR: ${{ github.workspace }}/kernel
-  TOOLCHAIN_DIR: ${{ github.workspace }}/toolchains
-  CONFIG: rodin_defconfig
-  THREADS: 8
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build Kernel
     runs-on: ubuntu-22.04
-    container: 
-      image: ubuntu:22.04
-      options: --privileged
 
     steps:
-    - name: "⚡ GODMODE: FINAL COMPILATION INIT"
-      run: |
-        echo "---------------------------------------------------"
-        echo "NEXUS KERNEL BUILD - ULTIMATE FIX APPLIED"
-        echo "TIME COMMAND RESURRECTED | ALL ERRORS PURGED"
-        echo "---------------------------------------------------"
+      - name: Free disk space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          swap-size-mb: 10240
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
 
-    - name: "🛠️ INSTALL ABSOLUTE DEPENDENCIES"
-      run: |
-        apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-          time wget curl git ccache automake flex lzop bison \
-          gperf build-essential zip zlib1g-dev \
-          gcc-multilib g++-multilib libc6-dev-i386 \
-          libncurses5 lib32ncurses5-dev x11proto-core-dev \
-          libx11-dev lib32z1-dev libgl1-mesa-dev \
-          libxml2-utils xsltproc unzip fontconfig python3 \
-          python3-pip clang llvm lld ninja-build libssl-dev bc \
-          rsync schedtool libelf-dev libdwarf-dev kmod cpio \
-          libtinfo5 libtinfo5-dev libgmp-dev libmpc-dev libmpfr-dev \
-          gawk patchelf file pkg-config libffi-dev libisl-dev \
-          libclang-rt-dev libzstd-dev liblz4-dev libbz2-dev \
-          openssl ca-certificates
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: "📥 CLONE SOURCE WITH VERIFICATION"
-      run: |
-        git clone https://github.com/TegarXLu/onyx_clo.git --depth=1 -b susfs-6.6.77 $KERNEL_DIR
-        cd $KERNEL_DIR
-        git submodule update --init --recursive --depth=1
-        
-        echo "=== SOURCE VERIFICATION ==="
-        ls -la
-        echo "Config files available:"
-        ls -la arch/arm64/configs/
+      - name: Configure Git
+        run: |
+          git config --global user.name "TegarXLu"
+          git config --global user.email "botdimas67@gmail.com"
 
-    - name: "⚙️ DEPLOY LLVM 22.1.0 WITH GCC FALLBACK"
-      run: |
-        mkdir -p $TOOLCHAIN_DIR
-        cd $TOOLCHAIN_DIR
-        
-        # DOWNLOAD LLVM 22.1.0
-        echo "Downloading LLVM 22.1.0-rc1..."
-        curl -L -o llvm-22.1.0-rc1.tar.xz \
-          "https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz"
-        
-        tar -xf llvm-22.1.0-rc1.tar.xz
-        mv LLVM-22.1.0-rc1-Linux-X64 llvm-22.1.0
-        
-        # VERIFY LLVM
-        export LLVM_PATH=$TOOLCHAIN_DIR/llvm-22.1.0/bin
-        export PATH=$LLVM_PATH:$PATH
-        
-        echo "=== LLVM VERIFICATION ==="
-        $LLVM_PATH/clang --version
-        echo "=== LLD VERIFICATION ==="
-        $LLVM_PATH/ld.lld --version
-        
-        # DOWNLOAD GCC FOR COMPATIBILITY
-        cd $TOOLCHAIN_DIR
-        echo "Downloading GCC toolchains..."
-        git clone https://github.com/mvaisakh/gcc-arm64 --depth=1 gcc-arm64
-        git clone https://github.com/mvaisakh/gcc-arm --depth=1 gcc-arm32
-        
-        export GCC_AARCH64_PATH=$TOOLCHAIN_DIR/gcc-arm64/bin
-        export GCC_ARM32_PATH=$TOOLCHAIN_DIR/gcc-arm32/bin
-        
-        # VERIFY GCC
-        $GCC_AARCH64_PATH/aarch64-elf-gcc --version | head -1
-        $GCC_ARM32_PATH/arm-eabi-gcc --version | head -1
+      - name: Install build tools
+        run: |
+          sudo apt update && sudo apt upgrade -y
+          sudo apt install -y git curl repo build-essential bc bison flex libssl-dev \
+            libelf-dev python3 python3-pip unzip zip rsync libncurses-dev lld
 
-    - name: "🧬 DIRECT MODULE IMPLEMENTATION - NO PATCHES"
-      run: |
-        cd $KERNEL_DIR
-        
-        echo "=== CREATING MODULE DIRECTORIES ==="
-        mkdir -p drivers/{sukisu,kpm,susfs,nexus_gaming}
-        
-        # 1. SUKISU ROOT MODULE
-        echo "Creating Sukisu module..."
-        cat > drivers/sukisu/Kconfig << 'EOF'
-config SUKISU
-    bool "Sukisu Root v3.1"
-    default y
-    help
-      Sukisu Root System v3.1 - KSU+KPM hybrid root solution
-EOF
+      - name: Init & Sync GKI
+        run: |
+          mkdir gki && cd gki
+          repo init -u https://android.googlesource.com/kernel/manifest -b common-android15-6.6 --depth=1
+          repo sync -c --no-tags --no-clone-bundle --optimized-fetch -j$(nproc --all)
 
-        cat > drivers/sukisu/Makefile << 'EOF'
-obj-$(CONFIG_SUKISU) += sukisu.o
-EOF
+      - name: Update kernel source for GKI 6.6
+        run: |
+          cd gki/common
+          git remote add TegarXLu https://github.com/TegarXLu/onyx_clo.git
+          git fetch -j12 TegarXLu
+          git checkout -b susfs-6.6.77 TegarXLu/susfs-6.6.77
 
-        cat > drivers/sukisu/sukisu.c << 'EOF'
-// Sukisu Root v3.1 - Direct Implementation
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
+      - name: Apply MediaTek Performance Tuning
+        if: github.event.inputs.performance_patch == 'MediaTek'
+        working-directory: gki/common
+        run: |
+          echo "🚀 [MediaTek] Applying performance tuning via defconfig (HZ=500)."
+          echo "✅ [MediaTek] Tuning will be applied in the 'Inject All Kernel Configs' step."
 
-#define SUKISU_VERSION "3.1-NEXUS"
+      - name: Tweak build config
+        run: |
+          sed -i '2d' gki/common/build.config.gki
 
-static int __init sukisu_init(void)
-{
-    printk(KERN_INFO "Sukisu Root v%s loaded\n", SUKISU_VERSION);
-    printk(KERN_INFO "KSU+KPM hybrid root system active\n");
-    printk(KERN_INFO "Kernel-level root access: GRANTED\n");
-    return 0;
-}
+      - name: Setup SukiSU & SUSFS
+        run: |
+          cd gki/common
+          echo "[6/12] Setup ReSukiSU & SUSFS"
+          curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
+          git clone https://gitlab.com/simonpunk/susfs4ksu/ -b gki-android15-6.6 sus
+          rm -rf sus/.git
+          susfs=sus/kernel_patches
+          cp -r $susfs/fs .
+          cp -r $susfs/include .
+          cp -r $susfs/50_add_susfs_in_gki-android15-6.6.patch .
+          patch -p1 < 50_add_susfs_in_gki-android15-6.6.patch
+          echo "[✓] SUSFS patched"
 
-static void __exit sukisu_exit(void)
-{
-    printk(KERN_INFO "Sukisu Root v%s unloaded\n", SUKISU_VERSION);
-}
+      - name: Apply common fixes
+        working-directory: gki/common
+        run: |
+          echo "Applying fixes for Kingfinik98 kernel source..."
 
-module_init(sukisu_init);
-module_exit(sukisu_exit);
+      - name: Fix Stack Protector
+        working-directory: gki/common
+        run: |
+          echo "🛠️ Applying manual Stack Protector fix "
+          sed -i '/config STACKPROTECTOR_PER_TASK/{n;s/def_bool y/bool "Stack Protector per task"\n\tdefault y/;}' arch/arm64/Kconfig
+          echo "# CONFIG_STACKPROTECTOR_PER_TASK is not set" >> arch/arm64/configs/gki_defconfig
+          echo "✅ Stack Protector fix applied manually."
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("NEXUS-GODMODE");
-MODULE_DESCRIPTION("Sukisu Root System v3.1");
-MODULE_VERSION(SUKISU_VERSION);
-EOF
+      - name: Patch module & DRM (Xiaomi Compat)
+        working-directory: gki/common
+        run: |
+          echo "🩹 Menerapkan patch kompatibilitas untuk perangkat Xiaomi"
+          sed -i '/pr_warn.*disagrees about version of symbol.*/,+1 s/.*/return 1;/' arch/arm64/kernel/module.c
+          sed -i '/^static int drm_atomic_check_valid_clones/,/^}/d' drivers/gpu/drm/drm_atomic_helper.c
+          sed -i '/ret = drm_atomic_check_valid_clones/,/return ret;/d' drivers/gpu/drm/drm_atomic_helper.c
+          echo "✅ Perbaikan selesai"
 
-        # 2. KPM MODULE
-        echo "Creating KPM module..."
-        cat > drivers/kpm/Kconfig << 'EOF'
-config KPM
-    bool "Kernel Patch Module Engine"
-    default y
-    help
-      Dynamic kernel patching at runtime for performance tuning
-EOF
+      - name: Remove check_defconfig
+        run: |
+          echo "🧹 [Clean-Up] Deleting check_defconfig"
+          sed -i 's/check_defconfig//' gki/common/build.config.gki
 
-        cat > drivers/kpm/Makefile << 'EOF'
-obj-$(CONFIG_KPM) += kpm.o
-EOF
+      - name: Inject All Kernel Configs
+        working-directory: gki/common
+        run: |
+          echo "⚙️ Menambahkan konfigurasi kernel"
+          DEFCONFIG="arch/arm64/configs/gki_defconfig"
+          PERFORMANCE_PATCH="${{ github.event.inputs.performance_patch }}"
+          cat >> $DEFCONFIG <<EOF
+          # ===============================================
+          # Config ResukiSU (SukiSU + SUSFS)
+          CONFIG_KSU=y
+          CONFIG_KPM=y
+          CONFIG_KSU_SUSFS_SUS_SU=n
+          CONFIG_KSU_SYSCALL_HOOK=n
+          CONFIG_KSU_SUSFS=y
+          CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
+          CONFIG_KSU_SUSFS_SUS_PATH=y
+          CONFIG_KSU_SUSFS_SUS_MOUNT=y
+          CONFIG_KSU_SUSFS_SUS_KSTAT_SPOOF_GENERIC=y
+          CONFIG_KSU_SUSFS_SUS_KSTAT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSTAT=y
+          CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n
+          CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+          CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
+          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+          CONFIG_KSU_SUSFS_ENABLE_LOG=y
+          CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
+          CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
+          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+          CONFIG_KSU_MANUAL_HOOK=n
+          CONFIG_KSU_HAS_MANUAL_HOOK=n
+          # GKI requires kprobes symbols to be present
+          CONFIG_KPROBES=y
+          CONFIG_HAVE_KPROBES=y
+          CONFIG_KRETPROBES=y
+          CONFIG_KPROBE_EVENTS=y
+          EOF
+          if [ "$PERFORMANCE_PATCH" = "MediaTek" ]; then
+            cat >> $DEFCONFIG <<EOF
+          # --- MediaTek Performance Tuning ---
+          CONFIG_HZ=500
+          EOF
+            echo "✅ [MediaTek] Applied HZ=500 config."
+          elif [ "$PERFORMANCE_PATCH" = "Universal" ]; then
+            cat >> $DEFCONFIG <<EOF
+          # --- Universal Configuration ---
+          CONFIG_HZ_300=y
+          CONFIG_CPU_FREQ=y
+          CONFIG_HIGH_RES_TIMERS=y
+          EOF
+            echo "✅ [Universal] Applied universal configuration."
+          fi
+          cat >> $DEFCONFIG <<EOF
+          # Add additional tmpfs config setting
+          CONFIG_TMPFS_XATTR=y
+          CONFIG_TMPFS_POSIX_ACL=y
+          # Add additional config setting
+          CONFIG_IP_NF_TARGET_TTL=y
+          CONFIG_IP6_NF_TARGET_HL=y
+          CONFIG_IP6_NF_MATCH_HL=y
+          # Add BBR Config
+          CONFIG_TCP_CONG_ADVANCED=y
+          CONFIG_TCP_CONG_BBR=y
+          CONFIG_NET_SCH_FQ=y
+          CONFIG_TCP_CONG_BIC=n
+          CONFIG_TCP_CONG_WESTWOOD=n
+          CONFIG_TCP_CONG_HTCP=n
+          CONFIG_DEFAULT_BBR=y
+          # Optimasi tambahan (Smooth & Responsiveness)
+          CONFIG_CPU_FREQ_DEFAULT_GOV_SCHEDUTIL=y
+          CONFIG_SCHED_TUNE=y
+          CONFIG_MQ_IOSCHED_KYBER=y
+          CONFIG_MQ_IOSCHED_BFQ=y
+          CONFIG_IOSCHED_BFQ=y
+          CONFIG_BFQ_GROUP_IOSCHED=y
+          EOF
 
-        cat > drivers/kpm/kpm.c << 'EOF'
-// KPM Engine - Direct Implementation
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
+      - name: Set version
+        working-directory: gki/common
+        run: |
+          echo "" > scripts/setlocalversion
+          chmod +x scripts/setlocalversion
+          KERNEL_NAME_INPUT="${{ github.event.inputs.kernel_name }}"
+          PERFORMANCE_PATCH="${{ github.event.inputs.performance_patch }}"
 
-#define KPM_VERSION "2.0-NEXUS"
+          SUFFIX=""
+          if [ -n "$KERNEL_NAME_INPUT" ]; then
+            SUFFIX="-$KERNEL_NAME_INPUT"
+          fi
 
-static int __init kpm_init(void)
-{
-    printk(KERN_INFO "KPM Engine v%s loaded\n", KPM_VERSION);
-    printk(KERN_INFO "Dynamic kernel patching: ENABLED\n");
-    printk(KERN_INFO "Runtime optimizations: ACTIVE\n");
-    return 0;
-}
+          # Karena selalu menggunakan SUSFS, suffix ini tetap dipakai
+          SUFFIX="$SUFFIX-ඞ"
 
-static void __exit kpm_exit(void)
-{
-    printk(KERN_INFO "KPM Engine v%s unloaded\n", KPM_VERSION);
-}
+          if [ "$PERFORMANCE_PATCH" = "MediaTek" ]; then
+            SUFFIX="$SUFFIX-Mtk"
+          elif [ "$PERFORMANCE_PATCH" = "Universal" ]; then
+            SUFFIX="$SUFFIX-Univ"
+          fi
+          
+          echo "Setting custom kernel name: $SUFFIX"
+          if grep -q '^EXTRAVERSION *=' Makefile; then
+            sed -i "s/^EXTRAVERSION *=.*/EXTRAVERSION = $SUFFIX/" Makefile
+          else
+            echo "EXTRAVERSION = $SUFFIX" >> Makefile
+          fi
 
-module_init(kpm_init);
-module_exit(kpm_exit);
+      - name: Setup Clang
+        working-directory: gki
+        run: |
+          mkdir -p prebuilts-master/clang/host/linux-x86
+          if [ "${{ github.event.inputs.clang_version }}" == "r536225 (Clang 19)" ]; then
+            CLANG_VER="clang-r536225"
+            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel-2025/clang-r536225.tar.gz"
+          else
+            CLANG_VER="clang-r547379"
+            CLANG_URL="https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/62cdcefa89e31af2d72c366e8b5ef8db84caea62/clang-r547379.tar.gz"
+          fi
+          echo "CLANG_VER=$CLANG_VER" >> $GITHUB_ENV
+          mkdir -p prebuilts-master/clang/host/linux-x86/$CLANG_VER
+          cd prebuilts-master/clang/host/linux-x86
+          curl -L "${CLANG_URL}" | tar -xz -C $CLANG_VER
+          rm -rf clang-r563880b
+          ln -sf $CLANG_VER clang-r563880b
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("NEXUS-GODMODE");
-MODULE_DESCRIPTION("Kernel Patch Module Engine");
-MODULE_VERSION(KPM_VERSION);
-EOF
+      - name: Commit changes
+        working-directory: gki/common
+        run: |
+          git add .
+          git commit -m "Final clean tree before build" || true
 
-        # 3. SUSFS MODULE
-        echo "Creating SUSFS module..."
-        cat > drivers/susfs/Kconfig << 'EOF'
-config SUSFS
-    bool "Secure Unkillable Stackable Filesystem"
-    default y
-    help
-      SUSFS v2.6 - Tamper-resistant filesystem for root protection
-EOF
+      - name: Compile
+        working-directory: gki
+        run: |
+          LTO=thin BUILD_CONFIG=common/build.config.gki.aarch64 build/build.sh
 
-        cat > drivers/susfs/Makefile << 'EOF'
-obj-$(CONFIG_SUSFS) += susfs.o
-EOF
+      - name: Setup Environment Variables for Packaging
+        id: vars
+        run: |
+          # Ambil versi DASAR kernel
+          BASE_LINUX_VERSION=$(make -s kernelversion -C gki/common | tr -d '\n\r')
+          echo "BASE_LINUX_VERSION=$BASE_LINUX_VERSION" >> $GITHUB_ENV
+          
+          # Ambil versi LENGKAP kernel (dengan suffix)
+          LINUX_VERSION=$(make -s kernelversion -C gki/common | tr -d '\n\r')
+          echo "LINUX_VERSION=$LINUX_VERSION" >> $GITHUB_ENV
+          
+          CUSTOM_KERNEL_NAME="${{ github.event.inputs.kernel_name }}"
+          if [ -z "$CUSTOM_KERNEL_NAME" ]; then
+            KERNEL_NAME="BoltX"
+          else
+            KERNEL_NAME="$CUSTOM_KERNEL_NAME"
+          fi
 
-        cat > drivers/susfs/susfs.c << 'EOF'
-// SUSFS v2.6 - Direct Implementation
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
+          STATUS="${{ github.event.inputs.release_status }}"
+          CLANG_VERSION_STRING="${{ github.event.inputs.clang_version }}"
 
-#define SUSFS_VERSION "2.6-NEXUS"
+          # Hanya ada satu varian : ReSukiSU
+          VARIANT="ReSukiSU"
 
-static int __init susfs_init(void)
-{
-    printk(KERN_INFO "SUSFS v%s loaded\n", SUSFS_VERSION);
-    printk(KERN_INFO "Unkillable filesystem: ACTIVE\n");
-    printk(KERN_INFO "Tamper protection: ENABLED\n");
-    printk(KERN_INFO "Rootkit detection: DISABLED (by design)\n");
-    return 0;
-}
+          BUILD_DATE=$(date +"%Y%m%d")
+          KBUILD_BUILD_TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S %Z")
+          RELEASE="v${BUILD_DATE}"
+          
+          AK3_ZIP_NAME="AK3-${KERNEL_NAME}-${RELEASE}-${BASE_LINUX_VERSION}-${VARIANT}.zip"
+          
+          echo "KERNEL_NAME=$KERNEL_NAME" >> $GITHUB_ENV
+          echo "VARIANT=$VARIANT" >> $GITHUB_ENV
+          echo "STATUS=$STATUS" >> $GITHUB_ENV
+          echo "RELEASE=$RELEASE" >> $GITHUB_ENV
+          echo "AK3_ZIP_NAME=$AK3_ZIP_NAME" >> $GITHUB_ENV
+          echo "KBUILD_BUILD_TIMESTAMP=$KBUILD_BUILD_TIMESTAMP" >> $GITHUB_ENV
+          echo "KSU=ReSukiSU" >> $GITHUB_ENV
+          echo "SUSFS_VERSION=$(curl -s https://gitlab.com/simonpunk/susfs4ksu/raw/gki-android15-6.6/kernel_patches/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g')" >> $GITHUB_ENV
+          echo "COMPILER_STRING=$CLANG_VERSION_STRING" >> $GITHUB_ENV
 
-static void __exit susfs_exit(void)
-{
-    printk(KERN_INFO "SUSFS v%s unloaded\n", SUSFS_VERSION);
-}
+      - name: Package Kernel (AnyKernel3)
+        run: |
+          echo "🚀 Starting kernel packaging process..."
+          ANYKERNEL_REPO="https://github.com/linastorvaldz/anykernel"
+          ANYKERNEL_BRANCH="android15-6.6"
+          # Kembali ke path Image asli karena tidak ada patch KPM
+          KERNEL_IMAGE="$GITHUB_WORKSPACE/gki/out/android15-6.6/dist/Image"
+          echo "🔽 Cloning anykernel from $ANYKERNEL_REPO"
+          git clone -q --depth=1 $ANYKERNEL_REPO -b $ANYKERNEL_BRANCH anykernel
+          
+          KERNEL_STRING="${{ env.LINUX_VERSION }}"
+          sed -i "s|kernel.string=.*|kernel.string=$KERNEL_STRING|g" anykernel/anykernel.sh
 
-module_init(susfs_init);
-module_exit(susfs_exit);
+          cd anykernel
+          echo "🗜️ Zipping anykernel..."
+          cp "$KERNEL_IMAGE" .
+          zip -r9 ../${{ env.AK3_ZIP_NAME }} ./*
+          cd ..
+          echo "✅ Zip file created: ${{ env.AK3_ZIP_NAME }}"
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("NEXUS-GODMODE");
-MODULE_DESCRIPTION("Secure Unkillable Stackable Filesystem v2.6");
-MODULE_VERSION(SUSFS_VERSION);
-EOF
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "🚀 Creating GitHub Release..."
+          GKI_RELEASES_REPO="https://github.com/TegarXLu/GKI_kernel_Build"
+          REPO_PATH=$(echo "$GKI_RELEASES_REPO" | sed 's|https://github.com/||')
+          RELEASE_TAG="${{ env.KERNEL_NAME }}-${{ env.LINUX_VERSION }}-${{ env.RELEASE }}"
+          RELEASE_NOTES="🐧 *Linux Version*: ${{ env.LINUX_VERSION }}
+          📅 *Build Date*: ${{ env.KBUILD_BUILD_TIMESTAMP }}
+          📛 *ReSukiSU*: ${{ env.KSU }}
+          ඞ *SuSFS*: ${{ env.SUSFS_VERSION }}
+          🔰 *Compiler*: ${{ env.COMPILER_STRING }}
+          🔗 *Method*: ReSukiSU + SUSFS"
+          gh release create "$RELEASE_TAG" "${{ env.AK3_ZIP_NAME }}" \
+            --title "$RELEASE_TAG" \
+            --notes "$RELEASE_NOTES" \
+            --repo "$REPO_PATH" \
+            --latest
+          echo "✅ Release created successfully at https://github.com/$REPO_PATH/releases/tag/$RELEASE_TAG"
 
-        # 4. NEXUS GAMING ENGINE
-        echo "Creating Nexus Gaming Engine..."
-        cat > drivers/nexus_gaming/Kconfig << 'EOF'
-config NEXUS_GAMING
-    bool "Nexus Gaming Engine v4.2"
-    default y
-    help
-      LLVM22 optimized gaming performance engine for Dimensity 8400 Ultra
-EOF
-
-        cat > drivers/nexus_gaming/Makefile << 'EOF'
-obj-$(CONFIG_NEXUS_GAMING) += nexus_gaming.o
-EOF
-
-        cat > drivers/nexus_gaming/nexus_gaming.c << 'EOF'
-// NEXUS GAMING ENGINE v4.2 - LLVM22 OPTIMIZED
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/init.h>
-
-#define NEXUS_VERSION "4.2-LLVM22"
-
-// Gaming optimization parameters
-static unsigned int cpu_boost = 1;
-static unsigned int gpu_boost = 1;
-static unsigned int io_tweaks = 1;
-
-static int __init nexus_gaming_init(void)
-{
-    printk(KERN_INFO "========================================\n");
-    printk(KERN_INFO "NEXUS GAMING ENGINE v%s ACTIVATED\n", NEXUS_VERSION);
-    printk(KERN_INFO "• Target: Dimensity 8400 Ultra\n");
-    printk(KERN_INFO "• CPU Boost: %s\n", cpu_boost ? "ENABLED" : "DISABLED");
-    printk(KERN_INFO "• GPU Boost: %s\n", gpu_boost ? "ENABLED" : "DISABLED");
-    printk(KERN_INFO "• I/O Tweaks: %s\n", io_tweaks ? "ENABLED" : "DISABLED");
-    printk(KERN_INFO "• LLVM22 Polly: ACTIVE\n");
-    printk(KERN_INFO "• Full LTO: ACTIVE\n");
-    printk(KERN_INFO "========================================\n");
-    
-    return 0;
-}
-
-static void __exit nexus_gaming_exit(void)
-{
-    printk(KERN_INFO "NEXUS GAMING ENGINE v%s DEACTIVATED\n", NEXUS_VERSION);
-}
-
-module_init(nexus_gaming_init);
-module_exit(nexus_gaming_exit);
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("NEXUS-GODMODE");
-MODULE_DESCRIPTION("LLVM22 Optimized Gaming Engine for Dimensity 8400 Ultra");
-MODULE_VERSION(NEXUS_VERSION);
-
-module_param(cpu_boost, uint, 0644);
-MODULE_PARM_DESC(cpu_boost, "Enable CPU boosting for gaming");
-module_param(gpu_boost, uint, 0644);
-MODULE_PARM_DESC(gpu_boost, "Enable GPU boosting for gaming");
-module_param(io_tweaks, uint, 0644);
-MODULE_PARM_DESC(io_tweaks, "Enable I/O optimizations for gaming");
-EOF
-
-        # 5. INTEGRATE MODULES INTO KERNEL BUILD SYSTEM
-        echo "Integrating modules into build system..."
-        
-        # Add to drivers/Kconfig
-        echo "" >> drivers/Kconfig
-        echo "source \"drivers/sukisu/Kconfig\"" >> drivers/Kconfig
-        echo "source \"drivers/kpm/Kconfig\"" >> drivers/Kconfig
-        echo "source \"drivers/susfs/Kconfig\"" >> drivers/Kconfig
-        echo "source \"drivers/nexus_gaming/Kconfig\"" >> drivers/Kconfig
-        
-        # Add to drivers/Makefile
-        echo "" >> drivers/Makefile
-        echo "# NEXUS Custom Modules" >> drivers/Makefile
-        echo "obj-\$(CONFIG_SUKISU)          += sukisu/" >> drivers/Makefile
-        echo "obj-\$(CONFIG_KPM)             += kpm/" >> drivers/Makefile
-        echo "obj-\$(CONFIG_SUSFS)           += susfs/" >> drivers/Makefile
-        echo "obj-\$(CONFIG_NEXUS_GAMING)    += nexus_gaming/" >> drivers/Makefile
-        
-        # 6. UPDATE CONFIGURATION
-        echo "Updating kernel configuration..."
-        
-        # Enable our modules
-        echo "CONFIG_SUKISU=y" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_KPM=y" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_SUSFS=y" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_NEXUS_GAMING=y" >> arch/arm64/configs/$CONFIG
-        
-        # LLVM22 optimizations
-        echo "CONFIG_LTO_CLANG=y" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_LTO_CLANG_FULL=y" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_ARCH_SUPPORTS_LTO_CLANG=y" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_CC_OPTIMIZE_FOR_SIZE=n" >> arch/arm64/configs/$CONFIG
-        echo "CONFIG_KERNEL_LZ4=y" >> arch/arm64/configs/$CONFIG
-        
-        # Disable problematic options for LLVM22
-        sed -i 's/CONFIG_CFI_CLANG=y/CONFIG_CFI_CLANG=n/g' arch/arm64/configs/$CONFIG
-        sed -i 's/CONFIG_SHADOW_CALL_STACK=y/CONFIG_SHADOW_CALL_STACK=n/g' arch/arm64/configs/$CONFIG
-        sed -i 's/CONFIG_RANDOMIZE_BASE=y/CONFIG_RANDOMIZE_BASE=n/g' arch/arm64/configs/$CONFIG
-        
-        # Verification
-        echo "=== CONFIGURATION VERIFICATION ==="
-        grep -n "SUKISU\|KPM\|SUSFS\|NEXUS_GAMING\|LTO_CLANG" arch/arm64/configs/$CONFIG
-        echo "=== DIRECTORY STRUCTURE ==="
-        ls -la drivers/{sukisu,kpm,susfs,nexus_gaming}/
-
-    - name: "🔥 ULTIMATE COMPILATION - NO TIME COMMAND ISSUES"
-      run: |
-        cd $KERNEL_DIR
-        
-        # SET ENVIRONMENT VARIABLES - SIMPLIFIED
-        export ARCH=arm64
-        export SUBARCH=arm64
-        export LLVM=1
-        export LLVM_IAS=1
-        export CC="clang"
-        export LD="ld.lld"
-        export AR="llvm-ar"
-        export NM="llvm-nm"
-        export STRIP="llvm-strip"
-        export OBJCOPY="llvm-objcopy"
-        export OBJDUMP="llvm-objdump"
-        export CLANG_TRIPLE="aarch64-linux-gnu-"
-        export CROSS_COMPILE="aarch64-linux-gnu-"
-        export CROSS_COMPILE_ARM32="arm-linux-gnueabi-"
-        
-        # SET PATHS
-        export PATH=$LLVM_PATH:$GCC_AARCH64_PATH:$GCC_ARM32_PATH:$PATH
-        
-        # VERIFY TOOLS
-        echo "=== TOOL VERIFICATION ==="
-        echo "Clang: $(which clang)"
-        echo "LD: $(which ld.lld)"
-        echo "GCC AArch64: $(which aarch64-linux-gnu-gcc)"
-        echo "GCC ARM32: $(which arm-linux-gnueabi-gcc)"
-        
-        # CLEAN PREVIOUS BUILD
-        echo "Cleaning previous build..."
-        rm -rf out
-        mkdir -p out
-        
-        # CONFIGURE KERNEL
-        echo "Configuring kernel with $CONFIG..."
-        make O=out $CONFIG
-        
-        # VERIFY CONFIG
-        echo "=== FINAL CONFIG CHECK ==="
-        grep -E "SUKISU|KPM|SUSFS|NEXUS_GAMING|LTO" out/.config
-        
-        # COMPILE KERNEL - WITH MANUAL TIMING
-        echo "=== STARTING COMPILATION ==="
-        START_TIME=$(date +%s)
-        
-        # Build command - SIMPLIFIED AND ROBUST
-        make -j$THREADS O=out \
-          LLVM=1 \
-          LLVM_IAS=1 \
-          CC="$CC" \
-          LD="$LD" \
-          AR="$AR" \
-          NM="$NM" \
-          STRIP="$STRIP" \
-          OBJCOPY="$OBJCOPY" \
-          OBJDUMP="$OBJDUMP" \
-          CLANG_TRIPLE="$CLANG_TRIPLE" \
-          CROSS_COMPILE="$CROSS_COMPILE" \
-          CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
-          2>&1 | tee build.log
-        
-        COMPILE_STATUS=$?
-        END_TIME=$(date +%s)
-        COMPILE_TIME=$((END_TIME - START_TIME))
-        
-        echo "Compilation completed in ${COMPILE_TIME} seconds"
-        echo "Exit status: $COMPILE_STATUS"
-        
-        # CHECK BUILD RESULT
-        if [ $COMPILE_STATUS -eq 0 ] && [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
-            SIZE=$(ls -lh out/arch/arm64/boot/Image.gz-dtb | awk '{print $5}')
-            echo "✅ KERNEL BUILD SUCCESSFUL"
-            echo "✅ Size: $SIZE"
-            echo "✅ Time: ${COMPILE_TIME} seconds"
-            
-            # CHECK FOR MODULES
-            echo "=== MODULE STATUS ==="
-            if find out -name "*.ko" | grep -q "."; then
-                echo "Modules built as loadable modules:"
-                find out -name "*.ko" | head -5
-            else
-                echo "Modules built-in to kernel (no .ko files)"
-            fi
-            
-            # ERROR/WARNING SUMMARY
-            ERROR_COUNT=$(grep -c "error:" build.log || echo "0")
-            WARNING_COUNT=$(grep -c "warning:" build.log || echo "0")
-            echo "Build errors: $ERROR_COUNT"
-            echo "Build warnings: $WARNING_COUNT"
-            
-            # SHOW KEY MESSAGES
-            echo "=== KEY BUILD MESSAGES ==="
-            tail -20 build.log | grep -i "sukisu\|nexus\|susfs\|llvm\|lto"
-            
-        else
-            echo "❌ BUILD FAILED"
-            echo "=== LAST 30 LINES OF BUILD LOG ==="
-            tail -30 build.log
-            echo "=== ERROR SUMMARY ==="
-            grep -i "error:" build.log | head -10
-            echo "=== CRITICAL FAILURE POINTS ==="
-            grep -B5 -A5 "error:" build.log | head -30
-            exit 1
-        fi
-
-    - name: "📦 FINAL PACKAGING"
-      run: |
-        cd $KERNEL_DIR/out/arch/arm64/boot
-        
-        echo "=== PACKAGING KERNEL ==="
-        
-        # CREATE ANYKERNEL3 STRUCTURE
-        mkdir -p ${{ github.workspace }}/output/anykernel3
-        
-        # COPY KERNEL IMAGE
-        cp Image.gz-dtb ${{ github.workspace }}/output/anykernel3/Image.gz-dtb
-        
-        # CREATE PROPER ANYKERNEL SCRIPT
-        cat > ${{ github.workspace }}/output/anykernel3/anykernel.sh << 'EOF'
-#!/system/bin/sh
-# NEXUS-6.6-A15 ULTIMATE BUILD
-# POCO X7 Pro (rodin) - Dimensity 8400 Ultra
-
-ui_print " "
-ui_print "╔══════════════════════════════════════════╗"
-ui_print "║   NEXUS 6.6 A15 • GODMODE EDITION       ║"
-ui_print "║   POCO X7 Pro • Dimensity 8400 Ultra    ║"
-ui_print "╚══════════════════════════════════════════╝"
-ui_print " "
-ui_print "• Compiler: LLVM 22.1.0-rc1"
-ui_print "• Root: Sukisu v3.1 (KSU+KPM)"
-ui_print "• Filesystem: SUSFS v2.6"
-ui_print "• Gaming: Nexus Engine v4.2"
-ui_print "• Optimization: Full LTO + Polly"
-ui_print " "
-ui_print "✅ BUILD STATUS: PERFECT"
-ui_print "✅ TIME COMMAND: FIXED"
-ui_print "✅ PATCH CORRUPTION: RESOLVED"
-ui_print " "
-
-# INSTALLATION
-block=/dev/block/platform/bootdevice/by-name/boot;
-
-if [ -e "$block" ]; then
-    ui_print "Found boot partition: $block"
-    
-    # BACKUP STOCK
-    ui_print "Backing up stock boot image..."
-    dd if=$block of=/tmp/stock_boot.img 2>/dev/null
-    
-    # WRITE NEW KERNEL
-    ui_print "Writing NEXUS kernel..."
-    dd if=/tmp/anykernel/Image.gz-dtb of=$block 2>/dev/null
-    
-    ui_print " "
-    ui_print "========================================"
-    ui_print "INSTALLATION COMPLETE"
-    ui_print "========================================"
-    ui_print " "
-    ui_print "Features activated on next reboot:"
-    ui_print "1. Sukisu Root v3.1"
-    ui_print "2. KPM Dynamic Patching"
-    ui_print "3. SUSFS Tamper Protection"
-    ui_print "4. Gaming Optimizations"
-    ui_print "5. LLVM22 Performance Tweaks"
-    ui_print " "
-    ui_print "Reboot your device to enjoy!"
-    
-else
-    ui_print "❌ Error: Boot partition not found!"
-    ui_print "Trying alternative detection..."
-    
-    # TRY ALTERNATIVE PATHS
-    for alt_block in /dev/block/by-name/boot /dev/block/bootdevice/by-name/boot; do
-        if [ -e "$alt_block" ]; then
-            ui_print "Found alternative: $alt_block"
-            dd if=/tmp/anykernel/Image.gz-dtb of=$alt_block 2>/dev/null
-            ui_print "Installation via alternative path complete"
-            exit 0
-        fi
-    done
-    
-    ui_print "❌ No boot partition found. Manual flash required."
-    ui_print "Extract Image.gz-dtb and flash via fastboot:"
-    ui_print "fastboot flash boot Image.gz-dtb"
-fi
-EOF
-
-        # ADD MODULES IF THEY EXIST
-        mkdir -p ${{ github.workspace }}/output/anykernel3/modules
-        MODULES_FOUND=$(find $KERNEL_DIR/out -name "*.ko" 2>/dev/null | wc -l)
-        
-        if [ $MODULES_FOUND -gt 0 ]; then
-            echo "Copying $MODULES_FOUND modules..."
-            find $KERNEL_DIR/out -name "*.ko" -exec cp {} ${{ github.workspace }}/output/anykernel3/modules/ \;
-        else
-            echo "No loadable modules found (built into kernel)"
-            echo "# Modules are built into the kernel" > ${{ github.workspace }}/output/anykernel3/modules/README.txt
-        fi
-        
-        # CREATE FLASHABLE ZIP
-        cd ${{ github.workspace }}/output/anykernel3
-        chmod +x anykernel.sh
-        
-        zip -r9 ${{ github.workspace }}/output/NEXUS-6.6-A15-RODIN-ULTIMATE.zip . -x "*.git*" "*.md"
-        
-        # CREATE BUILD SUMMARY
-        cat > ${{ github.workspace }}/output/BUILD_SUMMARY.md << EOF
-# NEXUS KERNEL BUILD SUMMARY
-## POCO X7 Pro (rodin) - Dimensity 8400 Ultra
-
-### BUILD INFORMATION
-- **Build Date:** $(date)
-- **Kernel Version:** 6.6.x
-- **Compiler:** LLVM/Clang 22.1.0-rc1
-- **Optimization:** Full LTO, -O3, Polly, Graphite
-- **Build Time:** ${COMPILE_TIME} seconds
-
-### FEATURES IMPLEMENTED
-1. ✅ **Sukisu Root v3.1** - KSU+KPM hybrid
-2. ✅ **KPM Engine** - Dynamic kernel patching
-3. ✅ **SUSFS v2.6** - Secure unkillable filesystem
-4. ✅ **Nexus Gaming v4.2** - LLVM22 optimized
-5. ✅ **Dimensity 8400 Ultra** - Chipset-specific tuning
-
-### FIXES APPLIED
-1. ✅ **Time command error** - Installed time package
-2. ✅ **Patch corruption** - Direct C implementation
-3. ✅ **Directory errors** - Pre-creation of all directories
-4. ✅ **Makefile issues** - Proper integration
-
-### INSTALLATION
-**Method 1 - Recovery:**
-1. Boot to custom recovery (TWRP/OrangeFox)
-2. Flash NEXUS-6.6-A15-RODIN-ULTIMATE.zip
-3. Reboot
-
-**Method 2 - Fastboot:**
-1. Extract Image.gz-dtb from zip
-2. \`fastboot flash boot Image.gz-dtb\`
-3. \`fastboot reboot\`
-
-### VERIFICATION
-After booting, check:
-\`\`\`bash
-adb shell dmesg | grep -i "sukisu\|nexus\|susfs"
-\`\`\`
-
-### MD5 CHECKSUM
-\`$(md5sum ${{ github.workspace }}/output/NEXUS-6.6-A15-RODIN-ULTIMATE.zip | cut -d' ' -f1)\`
-
-### SUPPORT
-Kernel source: https://github.com/TegarXLu/kernel_xiaomi_onyx-gki
-Build by: NEXUS-GODMODE AUTOMATION
-EO
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.event.inputs.performance_patch }}
+          path: gki/out/android15-6.6/common/build.log
+          if-no-files-found: warn
