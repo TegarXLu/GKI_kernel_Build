@@ -260,7 +260,7 @@ jobs:
         run: |
           set -e
           # path ke clang yang sudah di-untar oleh step Setup Clang
-          PREBUILTS="$GITHUB_WORKSPACE/prebuilts-master/clang/host/linux-x86/clang-r563880b"
+          PREBUILTS="$GITHUB_WORKSPACE/prebuilts-master/clang/host/linux-x86/clang-r536225"
           export PATH="$PREBUILTS/bin:$PATH"
 
           export ARCH=arm64
