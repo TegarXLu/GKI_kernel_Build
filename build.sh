@@ -134,7 +134,6 @@ fi
   esac
   config --enable CONFIG_KSU
   config --disable CONFIG_KSU_MANUAL_SU
-fi
 
 # SUSFS
 if susfs_included; then
