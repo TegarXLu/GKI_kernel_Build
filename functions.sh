@@ -4,40 +4,6 @@
 #    Functions
 # ==============
 
-# KernelSU-related functions
-install_ksu() {
-  local REPO="$1"
-  local REF="$2"
-  local URL
-
-  if [ -z "$REPO" ] || [ -z "$REF" ]; then
-    echo "Usage: install_ksu <user/repo> <ref>"
-    exit 1
-  fi
-
-# ksu_included() function
-# Type: bool
-ksu_included() {
-  # if variant is not nksu then
-  # kernelsu is included!
-  [[ $VARIANT != "NKSU" ]]
-  return $?
-}
-
-# susfs_included() function
-# Type: bool
-susfs_included() {
-  [[ $KSU_SUSFS == "true" ]]
-  return $?
-}
-
-# ksu_manual_hook() function
-# Type: bool
-ksu_manual_hook() {
-  [[ $KSU_MANUAL_HOOK == "true" ]]
-  return $?
-}
-
 # simplify_gh_url <github-repository-url>
 simplify_gh_url() {
   local URL="$1"
