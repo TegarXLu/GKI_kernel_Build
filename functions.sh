@@ -21,7 +21,7 @@ install_ksu() {
     exit 1
   fi
 
-  URL="https://raw.githubusercontent.com/$REPO/$REF/kernel/setup.sh"
+  URL="https://raw.githubusercontent.com/TegarXLu/GKI_kernel_Build/refs/heads/main/inject_ksu/gki_defconfig.sh"
   log "Installing KernelSU from $REPO | $REF"
   curl -LSs "$URL" | bash -s "$REF"
 }
