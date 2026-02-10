@@ -138,7 +138,7 @@ if ksu_included; then
   cd KernelSU-Next
   patch -p1 < $KERNEL_PATCHES/ksu/ksun-add-more-managers-support.patch
   cd $OLDPWD
-fi
+
 
   # Install kernelsu
   case "$KSU" in
@@ -148,6 +148,7 @@ fi
   esac
   config --enable CONFIG_KSU
   config --disable CONFIG_KSU_MANUAL_SU
+fi
 
 # SUSFS
 if susfs_included; then
