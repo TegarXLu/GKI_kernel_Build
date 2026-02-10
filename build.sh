@@ -121,7 +121,7 @@ if ksu_included; then
   config --enable CONFIG_KSU
 
   cd KernelSU-Next
-  patch -p1 < $KERNEL_PATCHES/ksu/ksun-add-more-managers-support.patch
+  patch -p1 < kernel-patches/ksu/ksun-add-more-managers-support.patch
   cd $OLDPWD
 fi
 
