@@ -20,6 +20,7 @@ CLANG_BRANCH=""
 ZIP_NAME="$KERNEL_NAME-REL-KVER-VARIANT-BUILD_DATE.zip"
 OUTDIR="$WORKDIR/out"
 KSRC="$WORKDIR/ksrc"
+KERNEL_PATCHES="$WORKDIR/kernel-patches"
 
 # Handle error
 exec > >(tee $WORKDIR/build.log) 2>&1
@@ -121,7 +122,7 @@ if ksu_included; then
   config --enable CONFIG_KSU
 
   cd KernelSU-Next
-  patch -p1 < kernel-patches/ksu/ksun-add-more-managers-support.patch
+  patch -p1 < $KERNEL_PATCHES/ksu/ksun-add-more-managers-support.patch
   cd $OLDPWD
 fi
 
