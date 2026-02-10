@@ -42,6 +42,14 @@ LINUX_VERSION_CODE=${LINUX_VERSION//./}
 DEFCONFIG_FILE=$(find ./arch/arm64/configs -name "$KERNEL_DEFCONFIG")
 cd $WORKDIR
 
+# --- ADD KSU INJECT SCRIPT ---
+log "Injecting custom KSU & SuSFS configs from GitHub..."
+export KSU
+export KSU_SUSFS
+wget -qO inject.sh https://raw.githubusercontent.com/Kingfinik98/gki-builder/refs/heads/6.x/inject_ksu/gki_defconfig.sh
+bash inject.sh
+rm inject.sh
+
 # Set Kernel variant
 log "Setting Kernel variant..."
 case "$KSU" in
