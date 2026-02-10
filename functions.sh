@@ -15,11 +15,6 @@ install_ksu() {
     exit 1
   fi
 
-  URL="https://raw.githubusercontent.com/$REPO/$REF/kernel/setup.sh"
-  log "Installing KernelSU from $REPO | $REF"
-  curl -LSs "$URL" | bash -s "$REF"
-}
-
 # ksu_included() function
 # Type: bool
 ksu_included() {
