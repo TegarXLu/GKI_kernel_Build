@@ -4,7 +4,7 @@ set -e
 # ==================================================
 # Target defconfig
 # ==================================================
-DEFCONFIG="arch/arm64/configs/gki_defconfig"
+DEFCONFIG="arch/arm64/configs/rodin_defconfig"
 
 echo "⚙️ Adding KernelSU / SuSFS configuration to $DEFCONFIG"
 
