@@ -46,15 +46,11 @@ cd $WORKDIR
 log "Injecting custom KSU & SuSFS configs from GitHub..."
 export KSU
 export KSU_SUSFS
-
-wget -qO inject.sh https://raw.githubusercontent.com/TegarXLu/GKI_kernel_Build/refs/heads/main/inject_ksu/gki_defconfig.sh
-chmod +x inject.sh
-
-cd ksrc
-bash ../inject.sh
-cd ..
-
-rm -f inject.sh
+wget -qO inject.sh https://raw.githubusercontent.com/Kingfinik98/gki-builder/refs/heads/6.x/inject_ksu/gki_defconfig.sh
+bash inject.sh
+rm inject.sh
+# --------------------------------------
+cd $WORKDIR
 
 # Set Kernel variant
 log "Setting Kernel variant..."
