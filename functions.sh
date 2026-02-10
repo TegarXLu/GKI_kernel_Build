@@ -4,12 +4,6 @@
 #    Functions
 # ==============
 
-#!/usr/bin/env bash
-
-# ==============
-#    Functions
-# ==============
-
 # KernelSU-related functions
 install_ksu() {
   local REPO="$1"
@@ -21,7 +15,7 @@ install_ksu() {
     exit 1
   fi
 
-  URL="https://raw.githubusercontent.com/TegarXLu/GKI_kernel_Build/refs/heads/main/inject_ksu/gki_defconfig.sh"
+  URL="https://raw.githubusercontent.com/$REPO/$REF/kernel/setup.sh"
   log "Installing KernelSU from $REPO | $REF"
   curl -LSs "$URL" | bash -s "$REF"
 }
@@ -29,9 +23,9 @@ install_ksu() {
 # ksu_included() function
 # Type: bool
 ksu_included() {
-  # if variant is not VNL then
+  # if variant is not nksu then
   # kernelsu is included!
-  [[ $VARIANT != "VNL" ]]
+  [[ $VARIANT != "NKSU" ]]
   return $?
 }
 
@@ -42,34 +36,11 @@ susfs_included() {
   return $?
 }
 
-# simplify_gh_url <github-repository-url>
-simplify_gh_url() {
-  local URL="$1"
-  echo "$URL" | sed "s|https://github.com/||g" | sed "s|.git||g"
-}
-
-# Kernel scripts function
-config() {
-  $KSRC/scripts/config --file $DEFCONFIG_FILE $@
-}
-
-# Logging function
-log() {
-  echo -e "[[LOG]] $*"
-}
-
-error() {
-  local err_txt
-  err_txt=$(
-    cat << EOF
-*Kernel CI*
-ERROR: $*
-EOF
-  )
-  echo -e "[[ERROR]] $*"
-  send_msg "$err_txt"
-  upload_file "$WORKDIR/build.log"
-  exit 1
+# ksu_manual_hook() function
+# Type: bool
+ksu_manual_hook() {
+  [[ $KSU_MANUAL_HOOK == "true" ]]
+  return $?
 }
 
 # simplify_gh_url <github-repository-url>
