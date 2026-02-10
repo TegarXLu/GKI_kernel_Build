@@ -208,19 +208,6 @@ else
   config --disable CONFIG_KSU_SUSFS
 fi
 
-# KSU Manual Hooks
-if ksu_manual_hook; then
-  log "Applying manual hook patch"
-  if [[ "$KSU" == "Suki" ]]; then
-    patch -p1 --forward < $WORKDIR/kernel-patches/hooks/manual-hook-v1.6.patch
-  else
-    patch -p1 --forward < $WORKDIR/kernel-patches/hooks/manual-hook-v1.4.patch
-  fi
-  config --enable CONFIG_KSU_MANUAL_HOOK
-  config --disable CONFIG_KSU_KPROBES_HOOK
-  config --disable CONFIG_KSU_SUSFS_SUS_SU # Conflicts with manual hook
-fi
-
 # Disable SuS_SU for MKSU
 if [ "$KSU" == "Magic" ] && susfs_included; then
   config --disable CONFIG_KSU_SUSFS_SUS_SU
