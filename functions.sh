@@ -10,7 +10,7 @@ install_ksu() {
   local REF="$2"
   local URL
 
-  if [[ -z "$REPO" ]] || [[ -z "$REF" ]]; then
+  if [ -z "$REPO" ] || [ -z "$REF" ]; then
     echo "Usage: install_ksu <user/repo> <ref>"
     exit 1
   fi
