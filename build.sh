@@ -105,7 +105,7 @@ cd $KSRC
 ## KernelSU setup
 if ksu_included; then
   # Remove existing KernelSU drivers
-  for KSU_PATH in drivers/staging/kernelsu drivers/kernelsu KernelSU; do
+  for KSU_PATH in drivers/staging/kernelsu drivers/kernelsu KernelSU KernelSU-Next; do
     if [[ -d $KSU_PATH ]]; then
       log "KernelSU driver found in $KSU_PATH, Removing..."
       KSU_DIR=$(dirname "$KSU_PATH")
@@ -116,6 +116,14 @@ if ksu_included; then
       rm -rf $KSU_PATH
     fi
   done
+
+  install_ksu 'pershoot/KernelSU-Next' 'dev-susfs'
+  config --enable CONFIG_KSU
+
+  cd KernelSU-Next
+  patch -p1 < $KERNEL_PATCHES/ksu/ksun-add-more-managers-support.patch
+  cd $OLDPWD
+fi
 
   # Install kernelsu
   case "$KSU" in
@@ -240,6 +248,9 @@ KERNEL_IMAGE="$OUTDIR/arch/arm64/boot/Image"
 export KCFLAGS="-w"
 unset KCPPFLAGS
 unset LDFLAGS_vmlinux
+if [[ $(echo "$LINUX_VERSION_CODE" | head -c1) -eq 6 ]]; then
+  KMI_CHECK="$WORKDIR/py/kmi-check-6.6.py"
+fi
 
 text=$(
   cat << EOF
@@ -277,6 +288,13 @@ fi
 # Build the actual kernel
 log "Building kernel..."
 make ${MAKE_ARGS[@]} Image
+
+# Check KMI Function symbol
+if [[ $(echo "$LINUX_VERSION_CODE" | head -c1) -eq 6 ]]; then
+  $KMI_CHECK "$KSRC/android/abi_gki_aarch64.stg" "$MODULE_SYMVERS" || true
+else
+  $KMI_CHECK "$KSRC/android/abi_gki_aarch64.xml" "$MODULE_SYMVERS" || true
+fi
 
 ## Post-compiling stuff
 cd "$WORKDIR"
