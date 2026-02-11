@@ -320,12 +320,6 @@ cp $KERNEL_IMAGE .
 zip -r9 $WORKDIR/$ZIP_NAME ./*
 cd $OLDPWD
 
-if [[ $STATUS != "BETA" ]]; then
-  echo "BASE_NAME=$KERNEL_NAME-$VARIANT" >> $GITHUB_ENV
-  mkdir -p $WORKDIR/artifacts
-  mv $WORKDIR/*.zip $WORKDIR/artifacts
-fi
-
 if [[ $LAST_BUILD == "true" && $STATUS != "BETA" ]]; then
   (
     echo "LINUX_VERSION=$LINUX_VERSION"
@@ -342,15 +336,22 @@ else
   echo "✅ Build Succeeded for $VARIANT variant."
 fi
 
+# ==========================================
 # Prepare artifacts for GitHub Actions
+# ==========================================
+
 mkdir -p "$WORKDIR/artifacts"
 
-# Move kernel zip
-if [[ -f "$WORKDIR/$ZIP_NAME" ]]; then
-  mv "$WORKDIR/$ZIP_NAME" "$WORKDIR/artifacts/"
-fi
+echo "=== DEBUG BEFORE MOVE ==="
+ls -lah "$WORKDIR"
 
-# Save build info
+# Move ALL zip files safely
+find "$WORKDIR" -maxdepth 1 -name "*.zip" -exec mv {} "$WORKDIR/artifacts/" \;
+
+# Move Image if exists
+find "$WORKDIR/out" -name "Image*" -exec cp {} "$WORKDIR/artifacts/" \; 2>/dev/null || true
+
+# Generate info file
 cat > "$WORKDIR/artifacts/info.txt" << EOF
 Linux Version: $LINUX_VERSION
 Build Date: $KBUILD_BUILD_TIMESTAMP
@@ -360,6 +361,15 @@ Compiler: $COMPILER_STRING
 EOF
 
 # Save log
-cp "$WORKDIR/build.log" "$WORKDIR/artifacts/"
+cp "$WORKDIR/build.log" "$WORKDIR/artifacts/" 2>/dev/null || true
+
+echo "=== FINAL ARTIFACTS CONTENT ==="
+ls -lah "$WORKDIR/artifacts"
+
+# Fail if no zip found
+if ! ls "$WORKDIR/artifacts/"*.zip 1> /dev/null 2>&1; then
+  echo "❌ ERROR: No ZIP generated!"
+  exit 1
+fi
 
 exit 0
