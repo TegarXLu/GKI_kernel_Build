@@ -122,6 +122,13 @@ jobs:
           chmod +x *.sh
           ./build.sh
 
+      - name: Verify Artifacts Exist
+        run: |
+          if ! ls artifacts/*.zip 1> /dev/null 2>&1; then
+            echo "❌ No ZIP found. Build failed."
+            exit 1
+          fi
+
       - name: Upload Artifacts (ZIP & IMG)
         uses: actions/upload-artifact@v4
         with:
@@ -138,14 +145,16 @@ jobs:
 
       - name: Generate release notes
         run: |
+          DATE=$(date +'%Y%m%d')
+          echo "DATE=$DATE" >> $GITHUB_ENV
           echo "TegarXLu GKI Build" > release.txt
-          echo "Date: ${{ needs.finalize.outputs.date }}" >> release.txt
+          echo "Date: $DATE" >> release.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: TegarXLu-GKI-${{ needs.finalize.outputs.date }}-${{ github.run_number }}
-          name: TegarXLu GKI Build - ${{ needs.finalize.outputs.date }}
+          tag_name: TegarXLu-GKI-${{ env.DATE }}-${{ github.run_number }}
+          name: TegarXLu GKI Build - ${{ env.DATE }}
           body_path: release.txt
           files: artifacts/*.zip
           overwrite_files: false
